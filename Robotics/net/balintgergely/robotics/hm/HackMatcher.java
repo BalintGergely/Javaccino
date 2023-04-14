@@ -11,6 +11,7 @@ import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -20,6 +21,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.SwingConstants;
 
 import net.balintgergely.robotics.Convolution;
 import net.balintgergely.robotics.ImageUtils;
@@ -114,15 +116,23 @@ public class HackMatcher{
 
 		while(y + VISUAL_BRICK_HEIGHT < board.getHeight()){
 			int rx = 1;
+			boolean rowHadElements = false;
 			for(int x = 0;x < 6;x++){
+				if(state.getHeight() != 0 && state.getAt(x, state.getHeight() - 1) == HackMatchState.EMPTY){
+					continue;
+				}
 				BufferedImage brickImage = board.getSubimage(rx, y, VISUAL_BRICK_WIDTH, VISUAL_BRICK_HEIGHT);
 				MatchResult r = Convolution.bestMatchAtOrigin(brickImage, blockPatternArray);
 				if(r.score() >= 0.915){
 					row[x] = (byte)(r.pid());
+					rowHadElements = true;
 				}else{
 					row[x] = 0;
 				}
 				rx += VISUAL_BRICK_WIDTH;
+			}
+			if(!rowHadElements){
+				break;
 			}
 			state = state.addBlockRowBottom(row);
 			y += VISUAL_BRICK_HEIGHT;
@@ -151,22 +161,17 @@ public class HackMatcher{
 	}
 	private void makeAllMoves(HackMatchState state,Consumer<HackMatchState> target){
 		for(int i = 0;i < 6;i++){
-			for(int v = 0;v < 6;v++){
-				if(v != i){
-					HackMatchState s = state.move(i, v);
-					if(s != state){
-						target.accept(s);
-					}
-				}
-			}
-		}
-		for(int i = 0;i < 6;i++){
 			HackMatchState move = state.flip(i);
 			if(move != state){
 				target.accept(move);
 			}
 		}
-		target.accept(state);
+		for(int i = 0;i < 6;i++){
+			HackMatchState s = state.grabOrDrop(i);
+			if(s != state){
+				target.accept(s);
+			}
+		}
 	}
 	private void makeAllDrops(HackMatchState state,Consumer<HackMatchState> target){
 		if(state.isHoldingTile()){
@@ -193,6 +198,30 @@ public class HackMatcher{
 	}
 	private HackMatchState findBestMove(HackMatchState start, int limit){
 		return movesAtMost(start, limit).max(Comparator.comparing(k -> k.getScore())).orElse(null);
+	}
+	private HackMatchState findMoveAlg(ArrayDeque<HackMatchState> queue,HackMatchState start){
+		if(start.getHeight() <= 2){
+			return start;
+		}
+		queue.clear();
+		queue.add(start);
+		int minScore = start.getScore();
+		HackMatchState best = start;
+		while(queue.size() < 50000){
+			HackMatchState s = queue.poll();
+			if(s.getHeight() > 10){
+				continue;
+			}
+			if(!s.isHoldingTile() && s.getScore() > minScore){
+				return s;
+//				best = s;
+//				minScore = s.getScore();
+//				int z = minScore;
+//				queue.removeIf(n -> n.getScore() < z);
+			}
+			makeAllMoves(s, queue::add);
+		}
+		return best;
 	}
 	private int executeMove(HackMatchState start,HackMatchState end){
 		if(end == start){
@@ -227,11 +256,17 @@ public class HackMatcher{
 		BufferedImage outImage = matcher.renderState(null, null);
 		JFrame frame = new JFrame("Output");
 		JLabel label = new JLabel(new ImageIcon(outImage));
+		label.setText("Hello");
+		label.setVerticalTextPosition(SwingConstants.BOTTOM);
+		label.setHorizontalTextPosition(SwingConstants.CENTER);
+		JButton hover = new JButton("Hover me");
+		frame.add(hover, BorderLayout.PAGE_START);
 		frame.add(label);
 		frame.pack();
 		frame.setVisible(true);
 		int writeMax = 10;
 		int write = 0;
+		ArrayDeque<HackMatchState> buffer = new ArrayDeque<>();
 		while(true){
 			System.out.println("Scanning...");
 			BufferedImage board = matcher.makeScreenshot();
@@ -242,17 +277,18 @@ public class HackMatcher{
 			HackMatchState state = matcher.readBoardState(board);
 			matcher.renderState(outImage,state);
 			label.repaint();
-			System.out.println("Searching...");
-			HackMatchState newState = matcher.findBestMove(state, 4);
-			if(newState == null){
-				System.out.println("No idea...");
-				newState = matcher.findBestMove(state, 4);
+			label.setText(state.getScore()+"  "+state.getHeight());
+			if(hover.getModel().isRollover()){
+				System.out.println("Searching...");
+				HackMatchState newState = matcher.findMoveAlg(buffer,state);
+				matcher.renderState(outImage,newState);
+				label.repaint();
+				System.out.println("Executing...");
+				if(newState != null){
+					matcher.executeMove(state, newState);
+				}
+				System.out.println("Waiting...");
 			}
-			System.out.println("Executing...");
-			if(newState != null){
-				matcher.executeMove(state, newState);
-			}
-			System.out.println("Waiting...");
 		}
 	}
 }
