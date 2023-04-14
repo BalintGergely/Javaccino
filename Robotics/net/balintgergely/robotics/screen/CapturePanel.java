@@ -19,10 +19,12 @@ public class CapturePanel extends JPanel{
 		super.setBackground(ScreenFrame.TRANSPARENT);
 		super.setFocusable(false);
 	}
+	@Override
 	public void setBounds(int x,int y,int width,int height){
 		super.setPreferredSize(new Dimension(width, height));
 		super.setBounds(x, y, width, height);
 	}
+	@Override
 	public void paintComponent(Graphics g){
 		super.paintComponent(g);
 		Graphics2D gr = (Graphics2D)g;
@@ -39,6 +41,12 @@ public class CapturePanel extends JPanel{
 			gr.draw(rect);
 		}
 	}
+	@Override
+	public void addImpl(Component comp,Object constraints,int index){
+		super.addImpl(comp, constraints, index);
+		this.repaint();
+	}
+	@Override
 	public void doLayout(){
 		super.doLayout();
 		for(int i = 0;i < super.getComponentCount();i++){

@@ -13,6 +13,9 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayDeque;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -123,7 +126,7 @@ public class HackMatcher{
 				}
 				BufferedImage brickImage = board.getSubimage(rx, y, VISUAL_BRICK_WIDTH, VISUAL_BRICK_HEIGHT);
 				MatchResult r = Convolution.bestMatchAtOrigin(brickImage, blockPatternArray);
-				if(r.score() >= 0.915){
+				if(r.score() >= 0.9){
 					row[x] = (byte)(r.pid());
 					rowHadElements = true;
 				}else{
@@ -199,36 +202,56 @@ public class HackMatcher{
 	private HackMatchState findBestMove(HackMatchState start, int limit){
 		return movesAtMost(start, limit).max(Comparator.comparing(k -> k.getScore())).orElse(null);
 	}
-	private HackMatchState findMoveAlg(ArrayDeque<HackMatchState> queue,HackMatchState start){
+	private HackMatchState findMoveAlg(Queue<HackMatchState> queue,HackMatchState start) throws InterruptedException{
 		if(start.getHeight() <= 2){
 			return start;
 		}
+		HashSet<HackMatchState> lim = new HashSet<>();
 		queue.clear();
 		queue.add(start);
-		int minScore = start.getScore();
+		lim.add(start);
+		int omgScore = start.getScore() + 10000;
 		HackMatchState best = start;
-		while(queue.size() < 50000){
+		boolean trip = false;
+		while(!queue.isEmpty()){
 			HackMatchState s = queue.poll();
 			if(s.getHeight() > 10){
 				continue;
 			}
-			if(!s.isHoldingTile() && s.getScore() > minScore){
-				return s;
-//				best = s;
-//				minScore = s.getScore();
-//				int z = minScore;
-//				queue.removeIf(n -> n.getScore() < z);
+			if(!s.isHoldingTile() && s.getScore() > best.getScore()){
+				if(s.getScore() >= omgScore){
+					System.out.println("Oh!");
+					trip = true;
+				}
+				best = s;
 			}
-			makeAllMoves(s, queue::add);
+			if(queue.size() >= 500000){
+				System.out.println("Tripped!");
+				trip = true;
+			}
+			if(!trip){
+				if(s.getParent() != null && s.getParent().getScore() + 200 < s.getScore()){
+					continue;
+				}
+				makeAllMoves(s, v -> {
+					if(lim.add(v)){
+						queue.add(v);
+					}
+				});
+			}
 		}
 		return best;
 	}
+	private int savedLocation = -1;
 	private int executeMove(HackMatchState start,HackMatchState end){
 		if(end == start){
-			for(int k = 0;k < 5;k++){
-				moveLeft();
+			if(savedLocation == -1){
+				for(int k = 0;k < 5;k++){
+					moveLeft();
+				}
+				savedLocation = 0;
 			}
-			return 0;
+			return savedLocation;
 		}else{
 			int x = executeMove(start, end.getParent());
 			if(end.hasLatestMove()){
@@ -247,6 +270,7 @@ public class HackMatcher{
 					grabOrDrop();
 				}
 			}
+			savedLocation = x;
 			return x;
 		}
 	}
@@ -266,7 +290,7 @@ public class HackMatcher{
 		frame.setVisible(true);
 		int writeMax = 10;
 		int write = 0;
-		ArrayDeque<HackMatchState> buffer = new ArrayDeque<>();
+		Queue<HackMatchState> buffer = new PriorityQueue<>(Comparator.comparingInt(HackMatchState::getScore).reversed());
 		while(true){
 			System.out.println("Scanning...");
 			BufferedImage board = matcher.makeScreenshot();
@@ -281,13 +305,14 @@ public class HackMatcher{
 			if(hover.getModel().isRollover()){
 				System.out.println("Searching...");
 				HackMatchState newState = matcher.findMoveAlg(buffer,state);
-				matcher.renderState(outImage,newState);
-				label.repaint();
 				System.out.println("Executing...");
 				if(newState != null){
 					matcher.executeMove(state, newState);
+					System.out.println("Waiting...");
+					Thread.sleep(1000);
 				}
-				System.out.println("Waiting...");
+			}else{
+				matcher.savedLocation = -1;
 			}
 		}
 	}

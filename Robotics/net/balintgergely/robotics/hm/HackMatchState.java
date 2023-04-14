@@ -31,13 +31,14 @@ public class HackMatchState{
 		}
 		return board;
 	}
-	private static boolean isPowered(byte[][] board,int x,int y,int d,int r,byte kind){
+	private static int isPowered(byte[][] board,int x,int y,int d,int r,byte kind){
 		if(board[y][x] != kind){
-			return false;
+			return 0;
 		}
 		if(r == 0){
-			return true;
+			return 1;
 		}
+		int km = 0;
 		for(int v = 0;v < 4;v++){
 			if(v == d){
 				continue;
@@ -56,16 +57,21 @@ public class HackMatchState{
 			if(dy < 0 || dy >= board.length){
 				continue;
 			}
-			if(isPowered(board, dx, dy, (v + 2) % 4, r - 1, kind)){
-				return true;
+			int k = isPowered(board, dx, dy, (v + 2) % 4, r - 1, kind);
+			if(k >= r){
+				return k + 1;
+			}
+			if(km < k){
+				km = k;
 			}
 		}
-		return false;
+		return km + 1;
 	}
 	private final byte[][] board;
 	private final byte hand;
 	private final HackMatchState parent;
 	private final int latestMove;
+	private final int depth;
 	private volatile int score = -1;
 	public int getHeight(){
 		return board.length;
@@ -85,11 +91,12 @@ public class HackMatchState{
 	public int getLatestMoveX(){
 		return (latestMove - 1) % 6;
 	}
-	private HackMatchState(byte[][] board,byte hand,HackMatchState parent,int lastMove){
+	private HackMatchState(byte[][] board,byte hand,HackMatchState parent,int lastMove,int depth){
 		this.board = board;
 		this.hand = hand;
 		this.parent = parent;
 		this.latestMove = lastMove;
+		this.depth = depth;
 		int y = board.length - 1;
 		if(y >= 0){
 			for(int x = 0;x < 6;x++){
@@ -101,7 +108,7 @@ public class HackMatchState{
 		}
 	}
 	public HackMatchState(){
-		this(new byte[0][],EMPTY,null,0);
+		this(new byte[0][],EMPTY,null,0,0);
 	}
 	public boolean isHoldingTile(){
 		return hand != EMPTY;
@@ -110,13 +117,13 @@ public class HackMatchState{
 		byte[][] newBoard = new byte[getHeight() + 1][];
 		System.arraycopy(board, 0, newBoard, 1, getHeight());
 		newBoard[0] = Arrays.copyOf(row, WIDTH);
-		return new HackMatchState(newBoard,hand,null,0);
+		return new HackMatchState(newBoard,hand,null,0,depth);
 	}
 	public HackMatchState addBlockRowBottom(byte[] row){
 		byte[][] newBoard = new byte[getHeight() + 1][];
 		System.arraycopy(board, 0, newBoard, 0, getHeight());
 		newBoard[getHeight()] = Arrays.copyOf(row, WIDTH);
-		return new HackMatchState(newBoard,hand,this,0);
+		return new HackMatchState(newBoard,hand,null,0,0);
 	}
 	public int getColumnHeight(int x){
 		int y = board.length;
@@ -145,7 +152,7 @@ public class HackMatchState{
 			newBoard[y1] = newBoard[y1].clone();
 			newBoard[y0][x] = v1;
 			newBoard[y1][x] = v0;
-			return new HackMatchState(newBoard,hand,this,FLIP_OFF + x);
+			return new HackMatchState(newBoard,hand,this,FLIP_OFF + x,depth + 2);
 		}
 	}
 	public HackMatchState move(int x,int y){
@@ -187,6 +194,9 @@ public class HackMatchState{
 				newBoard[y][x] = EMPTY;
 			}
 		}else{
+			if(h >= 9){
+				return this;
+			}
 			newHand = EMPTY;
 			int y = h;
 			if(y == board.length){
@@ -198,7 +208,7 @@ public class HackMatchState{
 			}
 			newBoard[y][x] = hand;
 		}
-		return new HackMatchState(newBoard, newHand, this, GRAB_OFF + x);
+		return new HackMatchState(newBoard, newHand, this, GRAB_OFF + x, depth + 1);
 	}
 	private static byte[][] dropUp(byte[][] board){
 		for(int y = 0;y < board.length - 1;y++){
@@ -253,7 +263,7 @@ public class HackMatchState{
 			for(int x = 0;x < 6;x++){
 				byte k = board[y][x];
 				if(TILE_LEAST <= k && k <= SUPER_LEAST){
-					if(isPowered(board, x, y, 5, 4, k)){
+					if(isPowered(board, x, y, 5, 4, k) == 4){
 						if(board == this.board){
 							board = cloneBoard(board, y);
 						}
@@ -267,25 +277,57 @@ public class HackMatchState{
 	public int getScore(){
 		int score = this.score;
 		if(score == -1){
-			score = 1000;
+			score = 100000;
 			for(int y = 0;y < getHeight();y++){
 				for(int x = 0;x < 6;x++){
 					byte kind = board[y][x];
 					if(TILE_LEAST <= kind && kind < SUPER_LEAST){
-						if(isPowered(board, x, y, 5, 4, kind)){
-							score += 100;
+						int p = isPowered(board, x, y, 5, 4, kind);
+						if(p >= 4){
+							score += 10000;
+						}else{
+							score += p * 10;
 						}
 					}
 					if(SUPER_LEAST <= kind){
-						if(isPowered(board, x, y, 5, 2, kind)){
-							score += 500;
+						int p = isPowered(board, x, y, 5, 2, kind);
+						if(p >= 2){
+							score += 100000;
 						}
 					}
 				}
 			}
-			score -= getHeight();
+			if(getHeight() > 8){
+				score = score - (getHeight() - 8) * 10000;
+			}
+			score = score - getHeight() * 500 - depth * 5;
 			this.score = score;
 		}
 		return score;
+	}
+	public int hashCode(){
+		int k = Byte.hashCode(hand);
+		for(byte[] v : board){
+			k = k ^ Arrays.hashCode(v);
+		}
+		return k;
+	}
+	public boolean equals(Object other){
+		if(other instanceof HackMatchState){
+			HackMatchState that = (HackMatchState)other;
+			if(hand != that.hand){
+				return false;
+			}
+			if(board.length != that.board.length){
+				return false;
+			}
+			for(int i = 0;i < board.length;i++){
+				if(!Arrays.equals(board[i], that.board[i])){
+					return false;
+				}
+			}
+			return true;
+		}
+		return false;
 	}
 }
