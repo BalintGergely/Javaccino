@@ -40,6 +40,7 @@ public class HackMatcher{
 	private static final int VISUAL_BOARD_WIDTH = 24*6 + 1;//145;
 	private static final int VISUAL_BOARD_HEIGHT = 238;
 	private BufferedImage rowPattern;
+	private BufferedImage exaPattern;
 	private BufferedImage[] blockPatternArray;
 	private BufferedImage[] brickPatternArray;
 	private Robot robot;
@@ -47,21 +48,27 @@ public class HackMatcher{
 	private int delay = 60;
 	private ScreenFrame screenFrame;
 	private CapturePanel boardPanel;
+	private CapturePanel exaPanel;
 	private BufferedImage readPattern(String file) throws Exception{
 		BufferedImage pattern = ImageIO.read(new File("Robotics\\assets\\"+file+".png"));
 		return pattern;
 	}
 	private HackMatcher() throws Exception{
 		rowPattern = readPattern("HackMatchRowPattern");
+		exaPattern = readPattern("EXA");
 		robot = new Robot();
 		robot.setAutoDelay(0);
 		screenFrame = new ScreenFrame(360, 270);
 		screenFrame.setVisible(true);
 		screenFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		exaPanel = new CapturePanel();
+		exaPanel.setForeground(Color.YELLOW);
 		boardPanel = new CapturePanel();
 		boardPanel.setForeground(Color.BLUE);
 		screenFrame.getClient().add(boardPanel);
-		boardPanel.setBounds(107, 6, VISUAL_BOARD_WIDTH, VISUAL_BOARD_HEIGHT);
+		screenFrame.getClient().add(exaPanel);
+		boardPanel.setBounds(107, 0, VISUAL_BOARD_WIDTH, VISUAL_BOARD_HEIGHT + 4);
+		exaPanel.setBounds(107, VISUAL_BOARD_HEIGHT + 7, VISUAL_BOARD_WIDTH, 9);
 		blockPatternArray = new BufferedImage[]{
 			readPattern("Chip"),
 			readPattern("Garbage"),
@@ -86,25 +93,42 @@ public class HackMatcher{
 			throw new RuntimeException(e);
 		}
 	}
+	private boolean isScrolling = false;
+	private void beginScroll(){
+		if(!isScrolling){
+			robot.keyPress(KeyEvent.VK_S);
+			isScrolling = true;
+		}
+	}
+	private void endScroll(){
+		if(isScrolling){
+			robot.keyRelease(KeyEvent.VK_S);
+			isScrolling = false;
+		}
+	}
 	private void moveLeft(){
+		endScroll();
 		robot.keyPress(KeyEvent.VK_A);
 		sleep(delay / 2);
 		robot.keyRelease(KeyEvent.VK_A);
 		sleep(delay / 2);
 	}
 	private void moveRight(){
+		endScroll();
 		robot.keyPress(KeyEvent.VK_D);
 		sleep(delay / 2);
 		robot.keyRelease(KeyEvent.VK_D);
 		sleep(delay / 2);
 	}
 	private void grabOrDrop(){
+		endScroll();
 		robot.keyPress(KeyEvent.VK_J);
 		sleep(delay / 2);
 		robot.keyRelease(KeyEvent.VK_J);
 		sleep(delay / 2);
 	}
 	private void swap(){
+		endScroll();
 		robot.keyPress(KeyEvent.VK_K);
 		sleep(delay / 2);
 		robot.keyRelease(KeyEvent.VK_K);
@@ -230,9 +254,6 @@ public class HackMatcher{
 		long fallTime = System.nanoTime() + 2000000000l;
 		while(!queue.isEmpty()){
 			HackMatchState s = queue.poll();
-			if(s.getHeight() > 10){
-				continue;
-			}
 			if(!s.isHoldingTile()){
 				if(start.getHeight() >= 7 && s.getHeight() < start.getHeight()){
 					return s;
@@ -245,14 +266,13 @@ public class HackMatcher{
 					best = s;
 				}
 			}
-			if(queue.size() >= 500000){
-				System.out.println("Tripped!");
-				trip = true;
-			}
 			if(!trip){
-				if(s.getParent() != null && s.getParent().getScore() + 200 < s.getScore()){
+				if(s.getScore() < best.getScore() - 2000000){
 					continue;
 				}
+				//if(s.getParent() != null && s.getParent().getScore() < s.getScore() + 2000000){
+				//	continue;
+				//}
 				makeAllMoves(s, v -> {
 					if(lim.add(v)){
 						queue.add(v);
@@ -274,6 +294,16 @@ public class HackMatcher{
 			savedLocation = 0;
 		}
 		return savedLocation;
+	}
+	private void recalibrate(){
+		BufferedImage wrow = robot.createScreenCapture(exaPanel.getBoundsOnScreen());
+		MatchResult res = Convolution.bestMatch(wrow, exaPattern);
+		if(res.score() < 0.9){
+			grabOrDrop();
+			savedLocation = -1;
+		}else{
+			savedLocation = res.x() / VISUAL_BRICK_WIDTH;
+		}
 	}
 	private int executeMove(HackMatchState start,HackMatchState end){
 		if(end == start){
@@ -317,6 +347,7 @@ public class HackMatcher{
 		int writeMax = 10;
 		int write = 0;
 		Queue<HackMatchState> buffer = new PriorityQueue<>(Comparator.comparingInt(HackMatchState::getScore).reversed());
+		HackMatchState stuck = null;
 		while(true){
 			System.out.println("Scanning...");
 			BufferedImage board = matcher.makeScreenshot();
@@ -329,18 +360,32 @@ public class HackMatcher{
 			label.repaint();
 			label.setText(state.getScore()+"  "+state.getHeight());
 			if(hover.getModel().isRollover()){
-				System.out.println("Searching...");
-				HackMatchState newState = matcher.findMoveAlg(buffer,state);
-				System.out.println("Executing...");
-				if(newState != null){
+				HackMatchState newState;
+				if(state.equals(stuck)){
+					newState = state;
+				}else{
+					matcher.endScroll();
+					System.out.println("Searching...");
+					newState = matcher.findMoveAlg(buffer,state);
+				}
+				if(newState == state){
+					System.out.println("Scrolling...");
+					matcher.beginScroll();
+					stuck = state;
+				}else{
+					stuck = null;
+					System.out.println("Executing...");
 					matcher.executeMove(state, newState);
 					matcher.savedLocation = -1;
-					System.out.println("Waiting...");
-					matcher.calibrate();
-					Thread.sleep(600);
+					System.out.println("Recalibrating...");
+					Thread.sleep(300);
+					matcher.recalibrate();
+					Thread.sleep(300);
 				}
 			}else{
+				matcher.endScroll();
 				matcher.savedLocation = -1;
+				stuck = null;
 			}
 		}
 	}

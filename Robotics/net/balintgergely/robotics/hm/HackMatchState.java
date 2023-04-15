@@ -32,7 +32,9 @@ public class HackMatchState{
 		return board;
 	}
 	private static int isPowered(byte[][] board,int x,int y,int d,int r,byte kind){
-		if(board[y][x] != kind){
+		if(kind == GARBAGE){
+			kind = board[y][x];
+		}else if(board[y][x] != kind){
 			return 0;
 		}
 		if(r == 0){
@@ -277,14 +279,21 @@ public class HackMatchState{
 	public int getScore(){
 		int score = this.score;
 		if(score == -1){
+			int superScore = 0;
 			score = 100000000;
 			for(int y = 0;y < getHeight();y++){
 				for(int x = 0;x < 6;x++){
 					byte kind = board[y][x];
+					if(kind == GARBAGE){
+						int p = isPowered(board, x, y, 5, 5, GARBAGE);
+						if(p >= 5){
+							score += 10000000;
+						}
+					}
 					if(TILE_LEAST <= kind && kind < SUPER_LEAST){
 						int p = isPowered(board, x, y, 5, 4, kind);
 						if(p >= 4){
-							score += 10000 + y * 1000;
+							score += 15000 + y * 100;
 						}else{
 							score += p * 10;
 						}
@@ -292,7 +301,11 @@ public class HackMatchState{
 					if(SUPER_LEAST <= kind){
 						int p = isPowered(board, x, y, 5, 2, kind);
 						if(p >= 2){
-							score += 100000;
+							if(getHeight() > 6){
+								superScore += 100000 * getHeight();
+							}else{
+								superScore -= 600000;
+							}
 						}
 					}
 				}
@@ -301,6 +314,7 @@ public class HackMatchState{
 				score = (score / 10) - (getHeight() - 6) * 1000000;
 			}
 			score = score - getHeight() * 10000 - depth * 5;
+			score = score + superScore;
 			this.score = score;
 		}
 		return score;
