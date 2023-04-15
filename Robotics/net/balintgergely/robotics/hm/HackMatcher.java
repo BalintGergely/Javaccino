@@ -21,6 +21,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import javax.imageio.ImageIO;
+import javax.print.DocPrintJob;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -122,12 +123,12 @@ public class HackMatcher{
 		byte[] row = new byte[6];
 
 		while(y + VISUAL_BRICK_HEIGHT < board.getHeight()){
-			int rx = 1;
 			boolean rowHadElements = false;
 			for(int x = 0;x < 6;x++){
 				if(state.getHeight() != 0 && state.getAt(x, state.getHeight() - 1) == HackMatchState.EMPTY){
 					continue;
 				}
+				int rx = 1 + x * VISUAL_BRICK_WIDTH;
 				BufferedImage brickImage = board.getSubimage(rx, y, VISUAL_BRICK_WIDTH, VISUAL_BRICK_HEIGHT);
 				MatchResult r = Convolution.bestMatchAtOrigin(brickImage, blockPatternArray);
 				boolean valid = false;
@@ -144,7 +145,6 @@ public class HackMatcher{
 				}else{
 					row[x] = 0;
 				}
-				rx += VISUAL_BRICK_WIDTH;
 			}
 			if(!rowHadElements){
 				break;
@@ -225,6 +225,7 @@ public class HackMatcher{
 		int omgScore = start.getScore() + 10000;
 		HackMatchState best = start;
 		boolean trip = false;
+		long fallTime = System.nanoTime() + 2000000000l;
 		while(!queue.isEmpty()){
 			HackMatchState s = queue.poll();
 			if(s.getHeight() > 10){
@@ -250,6 +251,9 @@ public class HackMatcher{
 						queue.add(v);
 					}
 				});
+			}
+			if(System.nanoTime() > fallTime){
+				trip = true;
 			}
 		}
 		return best;

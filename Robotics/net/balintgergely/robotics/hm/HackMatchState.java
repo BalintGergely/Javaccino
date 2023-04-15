@@ -277,14 +277,14 @@ public class HackMatchState{
 	public int getScore(){
 		int score = this.score;
 		if(score == -1){
-			score = 100000;
+			score = 100000000;
 			for(int y = 0;y < getHeight();y++){
 				for(int x = 0;x < 6;x++){
 					byte kind = board[y][x];
 					if(TILE_LEAST <= kind && kind < SUPER_LEAST){
 						int p = isPowered(board, x, y, 5, 4, kind);
 						if(p >= 4){
-							score += 10000;
+							score += 10000 + y * 1000;
 						}else{
 							score += p * 10;
 						}
@@ -297,8 +297,8 @@ public class HackMatchState{
 					}
 				}
 			}
-			if(getHeight() > 8){
-				score = score - (getHeight() - 8) * 10000;
+			if(getHeight() > 6){
+				score = score - (getHeight() - 6) * 1000000;
 			}
 			score = score - getHeight() * 500 - depth * 5;
 			this.score = score;
