@@ -2,16 +2,11 @@ package net.balintgergely.robotics.hm;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Graphics2D;
-import java.awt.Point;
-import java.awt.Rectangle;
 import java.awt.Robot;
-import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -21,7 +16,6 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import javax.imageio.ImageIO;
-import javax.print.DocPrintJob;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
