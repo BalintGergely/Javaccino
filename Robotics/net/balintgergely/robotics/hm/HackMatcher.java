@@ -12,6 +12,7 @@ import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.PriorityQueue;
@@ -39,6 +40,7 @@ public class HackMatcher{
 	private static final int VISUAL_BOARD_HEIGHT = 238;
 	private BufferedImage rowPattern;
 	private BufferedImage[] blockPatternArray;
+	private BufferedImage[] brickPatternArray;
 	private Robot robot;
 	private int scale = 1;
 	private int delay = 100;
@@ -60,7 +62,7 @@ public class HackMatcher{
 		screenFrame.getClient().add(boardPanel);
 		boardPanel.setBounds(107, 6, VISUAL_BOARD_WIDTH, VISUAL_BOARD_HEIGHT);
 		blockPatternArray = new BufferedImage[]{
-			null,
+			readPattern("Chip"),
 			readPattern("Garbage"),
 			readPattern("Red"),
 			readPattern("Green"),
@@ -73,6 +75,8 @@ public class HackMatcher{
 			readPattern("MagentaS"),
 			readPattern("YellowS"),
 		};
+		brickPatternArray = Arrays.copyOf(blockPatternArray,7);
+		brickPatternArray[0] = null;
 	}
 	private void sleep(long millis){
 		try{
@@ -126,7 +130,15 @@ public class HackMatcher{
 				}
 				BufferedImage brickImage = board.getSubimage(rx, y, VISUAL_BRICK_WIDTH, VISUAL_BRICK_HEIGHT);
 				MatchResult r = Convolution.bestMatchAtOrigin(brickImage, blockPatternArray);
-				if(r.score() >= 0.79){
+				boolean valid = false;
+				if(r.pid() == 0 && r.score() > 0.9){
+					r = Convolution.bestMatchAtOrigin(brickImage, brickPatternArray);
+					valid = true;
+				}else{
+					valid = r.score() > 0.9;
+				}
+				
+				if(valid){
 					row[x] = (byte)(r.pid());
 					rowHadElements = true;
 				}else{
