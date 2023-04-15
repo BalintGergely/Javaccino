@@ -126,7 +126,7 @@ public class HackMatcher{
 				}
 				BufferedImage brickImage = board.getSubimage(rx, y, VISUAL_BRICK_WIDTH, VISUAL_BRICK_HEIGHT);
 				MatchResult r = Convolution.bestMatchAtOrigin(brickImage, blockPatternArray);
-				if(r.score() >= 0.9){
+				if(r.score() >= 0.79){
 					row[x] = (byte)(r.pid());
 					rowHadElements = true;
 				}else{
