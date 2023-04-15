@@ -152,7 +152,7 @@ public class HackMatchState{
 			newBoard[y1] = newBoard[y1].clone();
 			newBoard[y0][x] = v1;
 			newBoard[y1][x] = v0;
-			return new HackMatchState(newBoard,hand,this,FLIP_OFF + x,depth + 2);
+			return new HackMatchState(newBoard,hand,this,FLIP_OFF + x,depth + 1);
 		}
 	}
 	public HackMatchState move(int x,int y){
@@ -194,7 +194,7 @@ public class HackMatchState{
 				newBoard[y][x] = EMPTY;
 			}
 		}else{
-			if(h >= 9){
+			if(h >= 8){
 				return this;
 			}
 			newHand = EMPTY;
@@ -298,9 +298,9 @@ public class HackMatchState{
 				}
 			}
 			if(getHeight() > 6){
-				score = score - (getHeight() - 6) * 1000000;
+				score = (score / 10) - (getHeight() - 6) * 1000000;
 			}
-			score = score - getHeight() * 500 - depth * 5;
+			score = score - getHeight() * 10000 - depth * 5;
 			this.score = score;
 		}
 		return score;

@@ -44,7 +44,7 @@ public class HackMatcher{
 	private BufferedImage[] brickPatternArray;
 	private Robot robot;
 	private int scale = 1;
-	private int delay = 100;
+	private int delay = 60;
 	private ScreenFrame screenFrame;
 	private CapturePanel boardPanel;
 	private BufferedImage readPattern(String file) throws Exception{
@@ -182,9 +182,11 @@ public class HackMatcher{
 			}
 		}
 		for(int i = 0;i < 6;i++){
-			HackMatchState s = state.grabOrDrop(i);
-			if(s != state){
-				target.accept(s);
+			for(int v = 0;v < 6;v++){
+				HackMatchState s = state.move(i, v);
+				if(s != state){
+					target.accept(s);
+				}
 			}
 		}
 	}
@@ -215,7 +217,7 @@ public class HackMatcher{
 		return movesAtMost(start, limit).max(Comparator.comparing(k -> k.getScore())).orElse(null);
 	}
 	private HackMatchState findMoveAlg(Queue<HackMatchState> queue,HackMatchState start) throws InterruptedException{
-		if(start.getHeight() <= 2){
+		if(start.getHeight() <= 1){
 			return start;
 		}
 		HashSet<HackMatchState> lim = new HashSet<>();
@@ -231,12 +233,17 @@ public class HackMatcher{
 			if(s.getHeight() > 10){
 				continue;
 			}
-			if(!s.isHoldingTile() && s.getScore() > best.getScore()){
-				if(s.getScore() >= omgScore){
-					System.out.println("Oh!");
-					trip = true;
+			if(!s.isHoldingTile()){
+				if(start.getHeight() >= 7 && s.getHeight() < start.getHeight()){
+					return s;
 				}
-				best = s;
+				if(s.getScore() > best.getScore()){
+					if(s.getScore() >= omgScore){
+						System.out.println("Oh!");
+						trip = true;
+					}
+					best = s;
+				}
 			}
 			if(queue.size() >= 500000){
 				System.out.println("Tripped!");
@@ -259,15 +266,18 @@ public class HackMatcher{
 		return best;
 	}
 	private int savedLocation = -1;
+	private int calibrate(){
+		if(savedLocation == -1){
+			for(int k = 0;k < 5;k++){
+				moveLeft();
+			}
+			savedLocation = 0;
+		}
+		return savedLocation;
+	}
 	private int executeMove(HackMatchState start,HackMatchState end){
 		if(end == start){
-			if(savedLocation == -1){
-				for(int k = 0;k < 5;k++){
-					moveLeft();
-				}
-				savedLocation = 0;
-			}
-			return savedLocation;
+			return calibrate();
 		}else{
 			int x = executeMove(start, end.getParent());
 			if(end.hasLatestMove()){
@@ -324,8 +334,10 @@ public class HackMatcher{
 				System.out.println("Executing...");
 				if(newState != null){
 					matcher.executeMove(state, newState);
+					matcher.savedLocation = -1;
 					System.out.println("Waiting...");
-					Thread.sleep(1000);
+					matcher.calibrate();
+					Thread.sleep(600);
 				}
 			}else{
 				matcher.savedLocation = -1;
