@@ -156,17 +156,6 @@ public class HackMatchState{
 			return new HackMatchState(newBoard,hand,this,FLIP_OFF + x,depth + 1);
 		}
 	}
-	public HackMatchState move(int x,int y){
-		if(x == y){
-			return this;
-		}
-		HackMatchState s = grabOrDrop(x);
-		if(s.hand != EMPTY){
-			return s.grabOrDrop(y);
-		}else{
-			return s;
-		}
-	}
 	public HackMatchState grabOrDrop(int x){
 		int h = getColumnHeight(x);
 		byte[][] newBoard;

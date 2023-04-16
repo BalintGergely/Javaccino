@@ -39,7 +39,7 @@ public class HackMatcher{
 	private BufferedImage[] brickPatternArray;
 	private Robot robot;
 	private int scale = 1;
-	private int delay = 60;
+	private int delay = 57;
 	private ScreenFrame screenFrame;
 	private CapturePanel boardPanel;
 	private CapturePanel exaPanel;
@@ -192,38 +192,63 @@ public class HackMatcher{
 		g2d.dispose();
 		return image;
 	}
-	private void makeAllMoves(HackMatchState state,Consumer<HackMatchState> target){
+	private void makeAllFlips(HackMatchState state,Consumer<HackMatchState> target){
 		for(int i = 0;i < 6;i++){
 			HackMatchState move = state.flip(i);
 			if(move != state){
 				target.accept(move);
 			}
 		}
+	}
+	private void makeAllDrops(HackMatchState state,Consumer<HackMatchState> target){
 		for(int i = 0;i < 6;i++){
-			for(int v = 0;v < 6;v++){
-				HackMatchState s = state.move(i, v);
-				if(s != state){
-					target.accept(s);
+			HackMatchState k = state.grabOrDrop(i);
+			if(k == state){
+				continue;
+			}
+			target.accept(k);
+			HackMatchState v = k.flip(i);
+			if(v == k){
+				continue;
+			}
+			target.accept(v);
+		}
+	}
+	private void makeAllMoves(HackMatchState state,Consumer<HackMatchState> target){
+		for(int i = 0;i < 12;i++){
+			HackMatchState k = state;
+			if(i >= 6){
+				k = state.flip(i % 6);
+				if(k == state){
+					continue;
 				}
+				target.accept(k);
+			}
+			HackMatchState v = k.grabOrDrop(i % 6);
+			if(k == v){
+				continue;
+			}
+			target.accept(v);
+			makeAllDrops(v, target);
+			HackMatchState o = v.flip(i % 6);
+			if(o != v){
+				target.accept(o);
+				makeAllDrops(o, target);
 			}
 		}
 	}
-	private void makeAllDrops(HackMatchState state,Consumer<HackMatchState> target){
+	private void makeAllSteps(HackMatchState state,Consumer<HackMatchState> target){
 		if(state.isHoldingTile()){
-			for(int i = 0;i < 6;i++){
-				HackMatchState move = state.grabOrDrop(i);
-				if(move != state){
-					target.accept(move);
-				}
-			}
+			makeAllFlips(state, target);
+			makeAllDrops(state, target);
 		}else{
-			target.accept(state);
+			makeAllMoves(state, target);
 		}
 	}
 	private Stream<HackMatchState> movesAtMost(HackMatchState start,int limit){
 		Stream<HackMatchState> s = Stream.of(start).unordered().parallel();
 		for(int i = 0;i < limit;i++){
-			s = s.mapMulti(this::makeAllMoves);
+			s = s.mapMulti(this::makeAllSteps);
 		}
 		s = s.mapMulti(this::makeAllDrops);
 		return s;
@@ -267,7 +292,7 @@ public class HackMatcher{
 				//if(s.getParent() != null && s.getParent().getScore() < s.getScore() + 2000000){
 				//	continue;
 				//}
-				makeAllMoves(s, v -> {
+				makeAllSteps(s, v -> {
 					if(lim.add(v)){
 						queue.add(v);
 					}
@@ -367,6 +392,11 @@ public class HackMatcher{
 					matcher.beginScroll();
 					stuck = state;
 				}else{
+					if(state.getHeight() > 6){
+						matcher.delay = 60;
+					}else{
+						matcher.delay = 57;
+					}
 					stuck = null;
 					System.out.println("Executing...");
 					matcher.executeMove(state, newState);
