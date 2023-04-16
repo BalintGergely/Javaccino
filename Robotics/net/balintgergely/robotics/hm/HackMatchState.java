@@ -1,6 +1,5 @@
 package net.balintgergely.robotics.hm;
 
-import java.awt.image.BufferedImage;
 import java.util.Arrays;
 
 public class HackMatchState{
