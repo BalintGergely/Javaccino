@@ -74,6 +74,9 @@ public class HackMatchState{
 	private final int latestMove;
 	private final int depth;
 	private volatile int score = -1;
+	public int getDepth(){
+		return depth;
+	}
 	public int getHeight(){
 		return board.length;
 	}
