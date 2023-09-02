@@ -11,13 +11,13 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.PriorityQueue;
-import java.util.Queue;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.SwingConstants;
@@ -33,6 +33,11 @@ public class HackMatcher{
 	private static final int VISUAL_BRICK_HEIGHT = 24;
 	private static final int VISUAL_BOARD_WIDTH = 24*6 + 1;//145;
 	private static final int VISUAL_BOARD_HEIGHT = 238;
+	private static final int
+		BOARD_PANEL_LEFT_OFFSET = 6,
+		BOARD_PANEL_CENTER_OFFSET = 107,
+		BOARD_PANEL_RIGHT_OFFSET = 209;
+	private static final int MODE_SINGLEPLAYER = 0, MODE_MULTIPLAYER_P1 = 1, MODE_MULTIPLAYER_P2 = 2;
 	private BufferedImage rowPattern;
 	private BufferedImage exaPattern;
 	private BufferedImage[] blockPatternArray;
@@ -43,6 +48,8 @@ public class HackMatcher{
 	private ScreenFrame screenFrame;
 	private CapturePanel boardPanel;
 	private CapturePanel exaPanel;
+	private boolean isP2 = false;
+	private int mode = -1;
 	private BufferedImage readPattern(String file) throws Exception{
 		BufferedImage pattern = ImageIO.read(new File("Robotics\\assets\\"+file+".png"));
 		return pattern;
@@ -61,8 +68,6 @@ public class HackMatcher{
 		boardPanel.setForeground(Color.BLUE);
 		screenFrame.getClient().add(boardPanel);
 		screenFrame.getClient().add(exaPanel);
-		boardPanel.setBounds(107, 0, VISUAL_BOARD_WIDTH, VISUAL_BOARD_HEIGHT + 4);
-		exaPanel.setBounds(107, VISUAL_BOARD_HEIGHT + 7, VISUAL_BOARD_WIDTH, 9);
 		blockPatternArray = new BufferedImage[]{
 			readPattern("Chip"),
 			readPattern("Garbage"),
@@ -80,6 +85,29 @@ public class HackMatcher{
 		brickPatternArray = Arrays.copyOf(blockPatternArray,7);
 		brickPatternArray[0] = null;
 	}
+	private void setMode(int mode){
+		if(this.mode == mode){
+			return;
+		}
+		int left = 0;
+		switch(mode){
+			case MODE_SINGLEPLAYER:
+				left = BOARD_PANEL_CENTER_OFFSET;
+				isP2 = false;
+				break;
+			case MODE_MULTIPLAYER_P1:
+				left = BOARD_PANEL_LEFT_OFFSET;
+				isP2 = false;
+				break;
+			case MODE_MULTIPLAYER_P2:
+				left = BOARD_PANEL_RIGHT_OFFSET;
+				isP2 = true;
+		}
+		this.mode = mode;
+		screenFrame.repaint();
+		boardPanel.setBounds(left, 0, VISUAL_BOARD_WIDTH, VISUAL_BOARD_HEIGHT + 4);
+		exaPanel.setBounds(left, VISUAL_BOARD_HEIGHT + 7, VISUAL_BOARD_WIDTH, 9);
+	}
 	private void sleep(long millis){
 		try{
 			Thread.sleep(millis);
@@ -90,42 +118,42 @@ public class HackMatcher{
 	private boolean isScrolling = false;
 	private void beginScroll(){
 		if(!isScrolling){
-			robot.keyPress(KeyEvent.VK_S);
+			robot.keyPress(isP2 ? KeyEvent.VK_DOWN : KeyEvent.VK_S);
 			isScrolling = true;
 		}
 	}
 	private void endScroll(){
 		if(isScrolling){
-			robot.keyRelease(KeyEvent.VK_S);
+			robot.keyRelease(isP2 ? KeyEvent.VK_DOWN : KeyEvent.VK_S);
 			isScrolling = false;
 		}
 	}
 	private void moveLeft(){
 		endScroll();
-		robot.keyPress(KeyEvent.VK_A);
+		robot.keyPress(isP2 ? KeyEvent.VK_LEFT : KeyEvent.VK_A);
 		sleep(delay / 2);
-		robot.keyRelease(KeyEvent.VK_A);
+		robot.keyRelease(isP2 ? KeyEvent.VK_LEFT : KeyEvent.VK_A);
 		sleep(delay / 2);
 	}
 	private void moveRight(){
 		endScroll();
-		robot.keyPress(KeyEvent.VK_D);
+		robot.keyPress(isP2 ? KeyEvent.VK_RIGHT : KeyEvent.VK_D);
 		sleep(delay / 2);
-		robot.keyRelease(KeyEvent.VK_D);
+		robot.keyRelease(isP2 ? KeyEvent.VK_RIGHT : KeyEvent.VK_D);
 		sleep(delay / 2);
 	}
 	private void grabOrDrop(){
 		endScroll();
-		robot.keyPress(KeyEvent.VK_J);
+		robot.keyPress(isP2 ? KeyEvent.VK_NUMPAD0 : KeyEvent.VK_J);
 		sleep(delay / 2);
-		robot.keyRelease(KeyEvent.VK_J);
+		robot.keyRelease(isP2 ? KeyEvent.VK_NUMPAD0 : KeyEvent.VK_J);
 		sleep(delay / 2);
 	}
 	private void swap(){
 		endScroll();
-		robot.keyPress(KeyEvent.VK_K);
+		robot.keyPress(isP2 ? KeyEvent.VK_DELETE : KeyEvent.VK_K);
 		sleep(delay / 2);
-		robot.keyRelease(KeyEvent.VK_K);
+		robot.keyRelease(isP2 ? KeyEvent.VK_DELETE : KeyEvent.VK_K);
 		sleep(delay / 2);
 	}
 	private BufferedImage makeScreenshot(){
@@ -222,18 +250,31 @@ public class HackMatcher{
 				if(k == state){
 					continue;
 				}
-				target.accept(k);
+				target.accept(k); // Flip before grab.
 			}
 			HackMatchState v = k.grabOrDrop(i % 6);
 			if(k == v){
 				continue;
 			}
-			target.accept(v);
-			makeAllDrops(v, target);
-			HackMatchState o = v.flip(i % 6);
-			if(o != v){
-				target.accept(o);
-				makeAllDrops(o, target);
+			for(int d = 0;d < 6;d++){
+				HackMatchState s = v;
+				if(d == i % 6){
+					// Grab-flip-drop same column.
+					s = v.flip(d);
+					if(s == v){
+						continue;
+					}
+				}
+				HackMatchState p = s.grabOrDrop(d);
+				if(p == s){
+					continue;
+				}
+				target.accept(p);
+				s = p.flip(d); // Can flip after a drop.
+				if(s == p){
+					continue;
+				}
+				target.accept(s);
 			}
 		}
 	}
@@ -253,17 +294,23 @@ public class HackMatcher{
 		s = s.mapMulti(this::makeAllDrops);
 		return s;
 	}
+	@SuppressWarnings("unused")
 	private HackMatchState findGoodMove(HackMatchState start, int limit){
 		return movesAtMost(start, limit).filter(k -> k.getScore() >= 4).findAny().orElse(null);
 	}
+	@SuppressWarnings("unused")
 	private HackMatchState findBestMove(HackMatchState start, int limit){
 		return movesAtMost(start, limit).max(Comparator.comparing(k -> k.getScore())).orElse(null);
 	}
-	private HackMatchState findMoveAlg(Queue<HackMatchState> queue,HackMatchState start) throws InterruptedException{
+	private PriorityQueue<HackMatchState> queue
+		= new PriorityQueue<>(Comparator.comparingInt(HackMatchState::getScore).reversed());
+	private HashSet<HackMatchState> lim
+		= new HashSet<>();
+	private HackMatchState findMoveAlg(HackMatchState start) throws InterruptedException{
 		if(start.getHeight() <= 1){
 			return start;
 		}
-		HashSet<HackMatchState> lim = new HashSet<>();
+		lim.clear();
 		queue.clear();
 		queue.add(start);
 		lim.add(start);
@@ -271,6 +318,11 @@ public class HackMatcher{
 		HackMatchState best = start;
 		boolean trip = false;
 		long fallTime = System.nanoTime() + 2000000000l;
+		Consumer<HackMatchState> collector = v -> {
+			if(lim.add(v)){
+				queue.add(v);
+			}
+		};
 		while(!queue.isEmpty()){
 			HackMatchState s = queue.poll();
 			if(!s.isHoldingTile()){
@@ -279,7 +331,6 @@ public class HackMatcher{
 				}
 				if(s.getScore() > best.getScore()){
 					if(s.getScore() >= omgScore){
-						System.out.println("Oh!");
 						trip = true;
 					}
 					best = s;
@@ -289,17 +340,8 @@ public class HackMatcher{
 				if(s.getScore() < best.getScore() - 2000000){
 					continue;
 				}
-				//if(s.getParent() != null && s.getParent().getScore() < s.getScore() + 2000000){
-				//	continue;
-				//}
-				makeAllSteps(s, v -> {
-					if(lim.add(v)){
-						queue.add(v);
-					}
-				});
-			}
-			if(System.nanoTime() > fallTime){
-				trip = true;
+				makeAllSteps(s, collector);
+				trip = System.nanoTime() > fallTime;
 			}
 		}
 		return best;
@@ -359,21 +401,18 @@ public class HackMatcher{
 		label.setVerticalTextPosition(SwingConstants.BOTTOM);
 		label.setHorizontalTextPosition(SwingConstants.CENTER);
 		JButton hover = new JButton("Hover me");
+		JComboBox<String> modeBox = new JComboBox<>(new String[]{"Single player","Versus P1","Versus P2"});
 		frame.add(hover, BorderLayout.PAGE_START);
-		frame.add(label);
+		frame.add(modeBox, BorderLayout.PAGE_END);
+		frame.add(label, BorderLayout.CENTER);
 		frame.pack();
 		frame.setVisible(true);
-		int writeMax = 10;
-		int write = 0;
-		Queue<HackMatchState> buffer = new PriorityQueue<>(Comparator.comparingInt(HackMatchState::getScore).reversed());
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		HackMatchState stuck = null;
 		while(true){
+			matcher.setMode(modeBox.getSelectedIndex());
 			System.out.println("Scanning...");
 			BufferedImage board = matcher.makeScreenshot();
-			if(write < writeMax){
-				ImageIO.write(board, "png", new File("Temp/Output/"+write+".png"));
-				write++;
-			}
 			HackMatchState state = matcher.readBoardState(board);
 			matcher.renderState(outImage,state);
 			label.repaint();
@@ -385,7 +424,7 @@ public class HackMatcher{
 				}else{
 					matcher.endScroll();
 					System.out.println("Searching...");
-					newState = matcher.findMoveAlg(buffer,state);
+					newState = matcher.findMoveAlg(state);
 				}
 				if(newState == state){
 					System.out.println("Scrolling...");

@@ -4,5 +4,8 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"java.dependency.packagePresentation": "hierarchical",
+		"java.project.sourcePaths": ["Robotics","Utility","Remote"]
+	}
 }

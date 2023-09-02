@@ -1,1 +1,4 @@
-/Temp
+/output/
+/obj/
+/bin/
+**/__pycache__/

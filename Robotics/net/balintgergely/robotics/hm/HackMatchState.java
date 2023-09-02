@@ -2,7 +2,7 @@ package net.balintgergely.robotics.hm;
 
 import java.util.Arrays;
 
-public class HackMatchState{
+public final class HackMatchState{
 	public static final int LEFT = 0,DOWN = 1,RIGHT = 2,UP = 3;
 	public static final byte
 		EMPTY = 0,
@@ -70,7 +70,7 @@ public class HackMatchState{
 	}
 	private final byte[][] board;
 	private final byte hand;
-	private final HackMatchState parent;
+	private final transient HackMatchState parent;
 	private final int latestMove;
 	private final int depth;
 	private volatile int score = -1;
@@ -203,6 +203,7 @@ public class HackMatchState{
 		}
 		return new HackMatchState(newBoard, newHand, this, GRAB_OFF + x, depth + 1);
 	}
+	@SuppressWarnings("unused")
 	private static byte[][] dropUp(byte[][] board){
 		for(int y = 0;y < board.length - 1;y++){
 			for(int x = 0;x < 6;x++){
@@ -250,6 +251,7 @@ public class HackMatchState{
 			clear(target, dx, dy, kind);
 		}
 	}
+	@SuppressWarnings("unused")
 	private HackMatchState clearMatches(){
 		byte[][] board = this.board;
 		for(int y = 0;y < getHeight();y++){
