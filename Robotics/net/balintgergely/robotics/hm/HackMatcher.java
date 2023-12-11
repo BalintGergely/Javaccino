@@ -51,7 +51,7 @@ public class HackMatcher{
 	private boolean isP2 = false;
 	private int mode = -1;
 	private BufferedImage readPattern(String file) throws Exception{
-		BufferedImage pattern = ImageIO.read(new File("Robotics\\assets\\"+file+".png"));
+		BufferedImage pattern = ImageIO.read(new File("Robotics/assets/"+file+".png"));
 		return pattern;
 	}
 	private HackMatcher() throws Exception{
@@ -401,6 +401,7 @@ public class HackMatcher{
 		label.setVerticalTextPosition(SwingConstants.BOTTOM);
 		label.setHorizontalTextPosition(SwingConstants.CENTER);
 		JButton hover = new JButton("Hover me");
+		hover.setRolloverEnabled(true);
 		JComboBox<String> modeBox = new JComboBox<>(new String[]{"Single player","Versus P1","Versus P2"});
 		frame.add(hover, BorderLayout.PAGE_START);
 		frame.add(modeBox, BorderLayout.PAGE_END);
