@@ -106,14 +106,14 @@ public class Asn1Support {
 						throw new IllegalArgumentException("Unknown context tag");
 				}
 			}
-			String mdname = Asn1AlgorithmId.SHA1.stdName;
-			String mgfname = Asn1AlgorithmId.MGF1.stdName;
+			String mdname = Asn1AlgorithmId.SHA1.getStdName();
+			String mgfname = Asn1AlgorithmId.MGF1.getStdName();
 			MGF1ParameterSpec mgfspec = MGF1ParameterSpec.SHA1;
 			int salt = 20;
 			int trailer = PSSParameterSpec.TRAILER_FIELD_BC;
 			if(digestAlgorithm != null){
 				hpLookup(digestAlgorithm.algorithm);
-				mdname = digestAlgorithm.algorithm.stdName;
+				mdname = digestAlgorithm.algorithm.getStdName();
 			}
 			if(mgfAlgorithm != null){
 				mgfspec = (MGF1ParameterSpec)mgfAlgorithm.parameters;
@@ -137,7 +137,7 @@ public class Asn1Support {
 		return algid;
 	}
 	public static Signature createSignature(AlgorithmId algid) throws InvalidAlgorithmParameterException, NoSuchAlgorithmException{
-		Signature sig = Signature.getInstance(algid.algorithm.stdName);
+		Signature sig = Signature.getInstance(algid.algorithm.getStdName());
 		sig.setParameter(algid.parameters);
 		return sig;
 	}

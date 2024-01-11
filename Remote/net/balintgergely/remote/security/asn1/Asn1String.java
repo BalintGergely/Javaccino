@@ -4,6 +4,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * An Asn1Item being stored as a Java String.
+ * Immutable.
+ */
 public class Asn1String implements Asn1Item{
 	private byte type;
 	public final String value;

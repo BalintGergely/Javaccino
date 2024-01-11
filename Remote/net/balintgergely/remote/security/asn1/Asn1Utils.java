@@ -3,6 +3,9 @@ package net.balintgergely.remote.security.asn1;
 import java.nio.ByteBuffer;
 
 public class Asn1Utils {
+	/**
+	 * Read length data from the specified ByteBuffer.
+	 */
 	public static long getLength(ByteBuffer in){
 		if(!in.hasRemaining()){
 			return -1;
@@ -26,6 +29,9 @@ public class Asn1Utils {
 		}
 		return cap;
 	}
+	/**
+	 * Write length data to the specified ByteBuffer.
+	 */
 	public static void putLength(ByteBuffer out,long len){
 		if(len < 0x80){
 			out.put((byte)len);
@@ -41,6 +47,9 @@ public class Asn1Utils {
 			}
 		}
 	}
+	/**
+	 * Returns the number of bytes required to encode the specified length value.
+	 */
 	public static int lengthOfLength(long len){
 		if(len < 0x80){
 			return 1;

@@ -11,11 +11,21 @@ import java.util.stream.Stream;
 
 import net.balintgergely.util.ByteBufferInputStream;
 
+/**
+ * Helper class for Asn1 serialization.
+ */
 public class Asn1Collector{
 	private ArrayList<ByteBuffer> data = new ArrayList<>();
+	/**
+	 * Add all data contained in the specified Asn1Collector.
+	 */
 	public void append(Asn1Collector that){
 		data.addAll(that.data);
 	}
+	/**
+	 * Attach length and type information and append the specified payload to this Asn1Collector.
+	 * This collector takes ownership of the specified ByteBuffer. Do not modify it afterwards.
+	 */
 	public void augmentAndAppend(int type,ByteBuffer content){
 		int length = content.remaining();
 		int lengthOfHeader = Asn1Utils.lengthOfLength(length) + 1;
@@ -41,12 +51,23 @@ public class Asn1Collector{
 		content.reset();
 		data.add(content);
 	}
+	/**
+	 * Add the specified ByteBuffer raw to the collector.
+	 * This collector takes ownership of the ByteBuffer. Do not modify it afterwards.
+	 */
 	public void append(ByteBuffer content){
 		this.data.add(content);
 	}
+	/**
+	 * Insert a length marker into the collector.
+	 */
 	public void pushLength(){
 		this.data.add(null);
 	}
+	/**
+	 * Remove the last length marker (added by pushLength) and replace it with the specified type marker
+	 * and the encoded amount of bytes added to this collector since the length marker was inserted.
+	 */
 	public void popLength(int type){
 		int index = data.size();
 		int totalLength = 0;
@@ -65,15 +86,18 @@ public class Asn1Collector{
 		Asn1Utils.putLength(headerContainer, totalLength);
 		data.set(index, headerContainer.flip());
 	}
+	/**
+	 * Returns a stream of ByteBuffers containing all bytes added to this Asn1Collector.
+	 */
 	public Stream<ByteBuffer> stream(){
-		return data.stream().map(ByteBuffer::duplicate);
+		return data.stream().map(ByteBuffer::asReadOnlyBuffer);
 	}
 	public InputStream toInputStream(){
 		return new SequenceInputStream(Collections.enumeration(
 			new AbstractCollection<ByteBufferInputStream>() {
 				@Override
 				public Iterator<ByteBufferInputStream> iterator() {
-					return data.stream().map(ByteBuffer::duplicate).map(ByteBufferInputStream::new).iterator();
+					return Asn1Collector.this.stream().map(ByteBufferInputStream::new).iterator();
 				}
 				@Override
 				public int size() {
@@ -82,6 +106,9 @@ public class Asn1Collector{
 			}
 		));
 	}
+	/**
+	 * Converts this collector to a ByteBuffer.
+	 */
 	public ByteBuffer toByteBuffer(){
 		int len = 0;
 		for(ByteBuffer b : data){
@@ -89,14 +116,17 @@ public class Asn1Collector{
 		}
 		ByteBuffer fin = ByteBuffer.allocate(len);
 		for(ByteBuffer b : data){
-			fin.put(b.duplicate());
+			fin.put(b.asReadOnlyBuffer());
 		}
 		return fin.flip();
 	}
+	/**
+	 * Print information about this collector to the standard output.
+	 */
 	public void printData(){
 		System.out.println("=====");
 		for(ByteBuffer buf : data){
-			ByteBuffer k = buf.duplicate();
+			ByteBuffer k = buf.asReadOnlyBuffer();
 			while(k.hasRemaining()){
 				int v = k.get() & 0xff;
 				System.out.print(" ");

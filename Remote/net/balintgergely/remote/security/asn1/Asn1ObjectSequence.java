@@ -5,6 +5,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * An abstract Asn1Item containing multiple Asn1Items.
+ */
 public abstract class Asn1ObjectSequence implements Asn1Item, Cloneable{
 	private List<Asn1Item> items;
 	public List<Asn1Item> items() { return items; }

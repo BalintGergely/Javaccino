@@ -15,17 +15,26 @@ public enum Asn1AlgorithmId implements Asn1Item{
 			Stream.of(Asn1AlgorithmId.values())
 			.mapMulti((a,c) -> {
 				c.accept(Map.entry(a, a));
-				c.accept(Map.entry(a.objectId,a));
-				a.names.stream().map(n -> Map.entry(n, a)).forEach(c);
+				c.accept(Map.entry(a.objectId, a));
+				a.names.forEach(n -> c.accept(Map.entry(n, a)));
 			})
 			.toArray(Map.Entry[]::new));
-	public final String objectId;
-	public final String stdName;
-	public final Set<String> names;
+	private final String objectId;
+	private final String stdName;
+	private final Set<String> names;
 	private Asn1AlgorithmId(String id,String... names){
 		this.objectId = id;
 		this.stdName = names[0];
 		this.names = Set.of(names);
+	}
+	public String getObjectId(){
+		return objectId;
+	}
+	public String getStdName(){
+		return stdName;
+	}
+	public Set<String> getNames(){
+		return names;
 	}
 	public static Asn1AlgorithmId lookup(Object data){
 		return LOOKUP.get(data);

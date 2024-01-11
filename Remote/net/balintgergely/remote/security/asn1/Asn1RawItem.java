@@ -2,6 +2,9 @@ package net.balintgergely.remote.security.asn1;
 
 import java.nio.ByteBuffer;
 
+/**
+ * An Asn1Item stored as a sequence of bytes.
+ */
 public class Asn1RawItem implements Asn1Item, Cloneable{
 	private static ByteBuffer readFrom(ByteBuffer input){
 		int start = input.position();
@@ -16,6 +19,11 @@ public class Asn1RawItem implements Asn1Item, Cloneable{
 		return data;
 	}
 	private ByteBuffer data;
+	/**
+	 * Creats and Asn1RawItem from the specified item.
+	 * If the specified item is already an Asn1RawItem, this is a shallow copy.
+	 * Otherwise it is encoded into a sequence of bytes.
+	 */
 	public Asn1RawItem(Asn1Item that){
 		if(that instanceof Asn1RawItem rawItem){
 			this.data = rawItem.data;
@@ -29,12 +37,24 @@ public class Asn1RawItem implements Asn1Item, Cloneable{
 			}
 		}
 	}
+	/**
+	 * Read one Asn1Item from the specified ByteBuffer.
+	 * The resulting Asn1RawItem contains a view to the specified buffer.
+	 * The buffer is advanced to the next item.
+	 */
 	public Asn1RawItem(ByteBuffer input){
 		this.data = readFrom(input);
 	}
+	/**
+	 * @return The type of this Asn1RawItem.
+	 */
 	public byte getType(){
 		return data.get(0);
 	}
+	/**
+	 * Returns the raw content.
+	 * This is modifiable if the Asn1RawItem was not created from a read only view to a ByteBuffer.
+	 */
 	public ByteBuffer getContent(){
 		return data.slice();
 	}
@@ -60,7 +80,11 @@ public class Asn1RawItem implements Asn1Item, Cloneable{
 		}else if(type == Asn1ContextSequence.class){
 			return type.cast(new Asn1ContextSequence(this));
 		}else{
-			return type.cast(resolve());
+			Asn1Item r = resolve();
+			if(r == this){
+				throw new IllegalStateException("This Asn1RawItem can not be interpreted as "+type);
+			}
+			return r.as(type);
 		}
 	}
 	public Asn1RawItem ofType(int type){

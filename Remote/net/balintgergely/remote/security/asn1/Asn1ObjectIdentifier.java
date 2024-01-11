@@ -3,6 +3,9 @@ package net.balintgergely.remote.security.asn1;
 import java.nio.ByteBuffer;
 import java.util.regex.Pattern;
 
+/**
+ * Represents an object identifier.
+ */
 public class Asn1ObjectIdentifier implements Asn1Item{
 	public static final Pattern ID_PATTERN = Pattern.compile("[0-6]\\.[123]?[0-9](?:\\.(?:[1-9][0-9]{0,17}|[0-9]))*");
 	private String id;
@@ -11,6 +14,9 @@ public class Asn1ObjectIdentifier implements Asn1Item{
 			throw new IllegalArgumentException();
 		}
 		this.id = id;
+	}
+	public Asn1ObjectIdentifier(Asn1AlgorithmId id){
+		this.id = id.getObjectId();
 	}
 	public Asn1ObjectIdentifier(Asn1RawItem item){
 		item.ofType(0x06);
@@ -62,5 +68,13 @@ public class Asn1ObjectIdentifier implements Asn1Item{
 		d.flip();
 		d.position(2);
 		collector.augmentAndAppend(0x06, d);
+	}
+	@Override
+	public <E extends Asn1Item> E as(Class<E> type){
+		if(type == Asn1AlgorithmId.class){
+			return type.cast(Asn1AlgorithmId.strictLookup(this.id));
+		}else{
+			return Asn1Item.super.as(type);
+		}
 	}
 }
