@@ -1,15 +1,12 @@
 package net.balintgergely.remote.security.asn1;
 
 import java.io.InputStream;
-import java.io.SequenceInputStream;
 import java.nio.ByteBuffer;
-import java.util.AbstractCollection;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.stream.Stream;
 
 import net.balintgergely.util.ByteBufferInputStream;
+import net.balintgergely.util.SequenceInputStream;
 
 /**
  * Helper class for Asn1 serialization.
@@ -93,18 +90,7 @@ public class Asn1Collector{
 		return data.stream().map(ByteBuffer::asReadOnlyBuffer);
 	}
 	public InputStream toInputStream(){
-		return new SequenceInputStream(Collections.enumeration(
-			new AbstractCollection<ByteBufferInputStream>() {
-				@Override
-				public Iterator<ByteBufferInputStream> iterator() {
-					return Asn1Collector.this.stream().map(ByteBufferInputStream::new).iterator();
-				}
-				@Override
-				public int size() {
-					return data.size();
-				}
-			}
-		));
+		return new SequenceInputStream(stream().map(ByteBufferInputStream::new).iterator());
 	}
 	/**
 	 * Converts this collector to a ByteBuffer.

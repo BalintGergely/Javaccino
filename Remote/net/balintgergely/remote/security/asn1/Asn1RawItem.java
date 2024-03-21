@@ -19,6 +19,7 @@ public class Asn1RawItem implements Asn1Item, Cloneable{
 		return data;
 	}
 	private ByteBuffer data;
+	private Asn1RawItem(){}
 	/**
 	 * Creats and Asn1RawItem from the specified item.
 	 * If the specified item is already an Asn1RawItem, this is a shallow copy.
@@ -74,6 +75,14 @@ public class Asn1RawItem implements Asn1Item, Cloneable{
 			throw new RuntimeException(c);
 		}
 	}
+	/**
+	 * @return An Asn1RawItem backed by the same data, but the buffer is made read-only.
+	 */
+	public Asn1RawItem toReadOnly(){
+		Asn1RawItem r = new Asn1RawItem();
+		r.data = data.asReadOnlyBuffer();
+		return r;
+	}
 	public <E extends Asn1Item> E as(Class<E> type){
 		if(type.isInstance(this)){
 			return type.cast(this);
@@ -87,6 +96,11 @@ public class Asn1RawItem implements Asn1Item, Cloneable{
 			return r.as(type);
 		}
 	}
+	/**
+	 * Checks that this Asn1RawItem has the specified type.
+	 * @return This Asn1RawItem
+	 * @throws IllegalStateException on a type mismatch
+	 */
 	public Asn1RawItem ofType(int type){
 		if(getType() != type){
 			throw new IllegalStateException();

@@ -1,0 +1,7 @@
+{
+	"java.dependency.packagePresentation": "hierarchical",
+	"java.project.sourcePaths": [
+		"Utility",
+		"Remote"
+	]
+}
