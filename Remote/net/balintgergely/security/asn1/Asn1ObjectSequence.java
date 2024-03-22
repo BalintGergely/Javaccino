@@ -51,4 +51,18 @@ public abstract class Asn1ObjectSequence implements Asn1Item, Cloneable{
 		}
 		return this;
 	}
+	public String contentToString(){
+		StringBuilder builder = new StringBuilder();
+		builder.append("{");
+		for(Asn1Item item : items()){
+			String s = item.toString();
+			builder.append("\r\n\t" + s.toString().replace("\n", "\n\t"));
+		}
+		builder.append("\r\n}");
+		return builder.toString();
+	}
+	@Override
+	public String toString(){
+		return "OBJECT SEQUENCE " + contentToString();
+	}
 }

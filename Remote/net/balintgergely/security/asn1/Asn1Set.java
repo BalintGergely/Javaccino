@@ -23,4 +23,8 @@ public class Asn1Set extends Asn1ObjectSequence{
 		}
 		collector.popLength(0x31);
 	}
+	@Override
+	public String toString(){
+		return "SET " + contentToString();
+	}
 }

@@ -13,6 +13,10 @@ import net.balintgergely.util.SequenceInputStream;
  */
 public class Asn1Collector{
 	private ArrayList<ByteBuffer> data = new ArrayList<>();
+	public Asn1Collector(){}
+	public Asn1Collector(Asn1Item item){
+		item.writeTo(this);
+	}
 	/**
 	 * Add all data contained in the specified Asn1Collector.
 	 */
@@ -105,6 +109,9 @@ public class Asn1Collector{
 			fin.put(b.asReadOnlyBuffer());
 		}
 		return fin.flip();
+	}
+	public byte[] toByteArray(){
+		return toByteBuffer().array();
 	}
 	/**
 	 * Print information about this collector to the standard output.

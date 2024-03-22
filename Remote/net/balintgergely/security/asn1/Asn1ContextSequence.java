@@ -33,4 +33,8 @@ public class Asn1ContextSequence extends Asn1ObjectSequence{
 		}
 		collector.popLength(type);
 	}
+	@Override
+	public String toString(){
+		return "CONTEXT SEQUENCE "+Integer.toHexString(Byte.toUnsignedInt(type)) + " " + contentToString();
+	}
 }

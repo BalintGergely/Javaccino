@@ -22,4 +22,12 @@ public class Asn1BitString extends Asn1RawItem{
 	public Asn1BitString(Asn1RawItem that){
 		super(that.ofType(0x03));
 	}
+	public int bitCount(){
+		ByteBuffer content = getContent();
+		int padding = content.get();
+		return content.remaining() * 8 - padding;
+	}
+	public String toString(){
+		return "BIT STRING " + bitCount() + " " + contentToString();
+	}
 }

@@ -65,9 +65,7 @@ public class Asn1Support {
 	}
 	public static AlgorithmId parseAlgorithmId(Asn1Item dspec){
 		Asn1ObjectSequence argsSequence = dspec.as(Asn1Sequence.class).ofLength(2);
-		Asn1AlgorithmId alg = Asn1AlgorithmId.strictLookup(
-			argsSequence.items().get(0).as(Asn1ObjectIdentifier.class).toString()
-		);
+		Asn1AlgorithmId alg = argsSequence.items().get(0).as(Asn1AlgorithmId.class);
 		if(alg == Asn1AlgorithmId.MGF1){
 			AlgorithmId sub = parseAlgorithmId(argsSequence.items().get(1));
 			return new AlgorithmId(alg, hpLookup(sub.algorithm));

@@ -35,4 +35,8 @@ public class Asn1String implements Asn1Item{
 	public void writeTo(Asn1Collector collector) {
 		collector.augmentAndAppend(type, getCharset().encode(value));
 	}
+	@Override
+	public String toString(){
+		return "STRING " + getCharset().toString() + " \"" + value + "\"";
+	}
 }

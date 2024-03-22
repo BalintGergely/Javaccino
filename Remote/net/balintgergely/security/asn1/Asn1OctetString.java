@@ -19,4 +19,8 @@ public class Asn1OctetString extends Asn1RawItem{
 	public Asn1OctetString(byte[] data){
 		super(encodeNow(data));
 	}
+	@Override
+	public String toString(){
+		return "OCTET STRING " + contentToString();
+	}
 }

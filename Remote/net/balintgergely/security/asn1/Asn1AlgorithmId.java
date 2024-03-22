@@ -46,4 +46,8 @@ public enum Asn1AlgorithmId implements Asn1Item{
 	public void writeTo(Asn1Collector collector) {
 		new Asn1ObjectIdentifier(objectId).writeTo(collector);
 	}
+	@Override
+	public String toString(){
+		return "ALGORITHM " + name();
+	}
 }

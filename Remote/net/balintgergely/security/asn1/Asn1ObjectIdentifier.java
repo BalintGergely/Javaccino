@@ -40,9 +40,6 @@ public class Asn1ObjectIdentifier implements Asn1Item{
 		}
 		this.id = builder.toString();
 	}
-	public String toString(){
-		return id;
-	}
 	public void getContent(ByteBuffer data){
 		String[] d = id.split("\\.");
 		int a = Integer.parseInt(d[0]);
@@ -75,6 +72,15 @@ public class Asn1ObjectIdentifier implements Asn1Item{
 			return type.cast(Asn1AlgorithmId.strictLookup(this.id));
 		}else{
 			return Asn1Item.super.as(type);
+		}
+	}
+	@Override
+	public String toString(){
+		Asn1AlgorithmId algid = Asn1AlgorithmId.lookup(this.id);
+		if(algid != null){
+			return algid.toString();
+		}else{
+			return "OBJECT IDENTIFIER " + id;
 		}
 	}
 }

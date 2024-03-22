@@ -26,6 +26,10 @@ public class Asn1Integer implements Asn1Item{
 		return value;
 	}
 	@Override
+	public String toString(){
+		return "INTEGER " + value.toString();
+	}
+	@Override
 	public void writeTo(Asn1Collector collector) {
 		collector.augmentAndAppend(0x02,ByteBuffer.wrap(value.toByteArray()));
 	}

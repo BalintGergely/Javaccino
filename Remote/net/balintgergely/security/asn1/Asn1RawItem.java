@@ -1,6 +1,10 @@
 package net.balintgergely.security.asn1;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.Objects;
+import java.util.Base64.Encoder;
 
 /**
  * An Asn1Item stored as a sequence of bytes.
@@ -11,7 +15,7 @@ public class Asn1RawItem implements Asn1Item, Cloneable{
 		input.get();
 		long len = Asn1Utils.getLength(input);
 		if(len < 0 || len > input.remaining()){
-			throw new RuntimeException("Length too big!");
+			return null;
 		}
 		ByteBuffer data = input.slice(start, (int)(input.position() + len - start));
 		data.position(input.position() - start);
@@ -44,7 +48,7 @@ public class Asn1RawItem implements Asn1Item, Cloneable{
 	 * The buffer is advanced to the next item.
 	 */
 	public Asn1RawItem(ByteBuffer input){
-		this.data = readFrom(input);
+		this.data = Objects.requireNonNull(readFrom(input));
 	}
 	/**
 	 * @return The type of this Asn1RawItem.
@@ -127,7 +131,34 @@ public class Asn1RawItem implements Asn1Item, Cloneable{
 			default -> this;
 		};
 	}
+	private Asn1Item tryResolveAsContextSequence(boolean deep){
+		ByteBuffer input = getContent();
+		if(!input.hasRemaining()){
+			return this;
+		}
+		do{
+			if(readFrom(input) == null){
+				return this;
+			}
+		}while(input.hasRemaining());
+		return new Asn1ContextSequence(this,deep);
+	}
+	protected String contentToString(){
+		Asn1Item item = tryResolveAsContextSequence(false);
+		if(item != this){
+			return ((Asn1ContextSequence)item).contentToString();
+		}else{
+			Encoder encoder = Base64.getEncoder();
+			ByteBuffer result = encoder.encode(getContent());
+			return StandardCharsets.UTF_8.decode(result).toString();
+		}
+	}
 	public String toString(){
-		return "Asn1RawItem of type " + getType();
+		Asn1Item resolved = resolve();
+		if(resolved == this){
+			return "RAW ITEM " + Integer.toHexString(Byte.toUnsignedInt(getType())) + " " + contentToString();
+		}else{
+			return resolved.toString();
+		}
 	}
 }

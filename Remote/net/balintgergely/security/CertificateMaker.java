@@ -38,14 +38,14 @@ public class CertificateMaker {
 	@SuppressWarnings("unchecked")
 	private static final <E extends Throwable> void throwUnchecked(Throwable t) throws E{ throw (E)t; }
 	private AtomicReference<BigInteger> serialNumber = new AtomicReference<BigInteger>(BigInteger.ZERO);
-	private X500Principal myIdentity;
+	//private X500Principal myIdentity;
 	private Asn1Item myIdentityEncoded;
 	private Asn1Item privateKeyAlgorithmId;
 	private AlgorithmId parsedAlgorithmId;
 	private PrivateKey privateKey;
 	public CertificateMaker(X500Principal myIdentity,PrivateKey privateKey){
-		this.myIdentity = myIdentity;
-		this.myIdentityEncoded = new Asn1RawItem(ByteBuffer.wrap(this.myIdentity.getEncoded()));
+		//this.myIdentity = myIdentity;
+		this.myIdentityEncoded = new Asn1RawItem(ByteBuffer.wrap(myIdentity.getEncoded()));
 		this.privateKey = privateKey;
 		Asn1Sequence issuerKeyEncoded = new Asn1RawItem(
 			ByteBuffer.wrap(privateKey.getEncoded())).as(Asn1Sequence.class);
@@ -118,6 +118,7 @@ public class CertificateMaker {
 			myKeyPair.getPublic(),
 			OffsetDateTime.now().plusHours(1));
 		cert.verify(myKeyPair.getPublic());
-		System.out.println("Done.");
+		Asn1Item item = new Asn1RawItem(ByteBuffer.wrap(cert.getEncoded())).resolve(true);
+		System.out.println(item.toString());
 	}
 }

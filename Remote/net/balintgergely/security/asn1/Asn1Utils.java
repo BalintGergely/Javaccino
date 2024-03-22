@@ -1,6 +1,7 @@
 package net.balintgergely.security.asn1;
 
 import java.nio.ByteBuffer;
+import java.util.Base64;
 
 public class Asn1Utils {
 	/**
@@ -16,7 +17,7 @@ public class Asn1Utils {
 		}
 		int count = first & 0x7F;
 		if(count > 8){
-			throw new RuntimeException("Length too big!");
+			return -1;
 		}
 		if(count > in.remaining()){
 			in.position(in.position() - 1);
@@ -60,5 +61,19 @@ public class Asn1Utils {
 			}
 			return k + 1;
 		}
+	}
+	public static String encode(String title,Asn1Item item){
+		StringBuilder builder = new StringBuilder();
+		builder.append("-----BEGIN "+title+"-----\r\n");
+		String encoded = Base64.getEncoder().encodeToString(new Asn1Collector(item).toByteArray());
+		while(encoded.length() > 64){
+			builder.append(encoded.substring(0, 64));
+			builder.append("\r\n");
+			encoded = encoded.substring(64);
+		}
+		builder.append(encoded);
+		builder.append("\r\n");
+		builder.append("-----END "+title+"-----\r\n");
+		return builder.toString();
 	}
 }

@@ -53,8 +53,7 @@ public class Asn1GeneralizedTime implements Asn1Item{
 			date = OffsetDateTime.of(y,m,d,ho,mt,sc,ns,ZoneOffset.of(zone));
 		}
 	}
-	@Override
-	public void writeTo(Asn1Collector collector) {
+	public String getDateString(){
 		int y = date.get(ChronoField.YEAR);
 		int m = date.get(ChronoField.MONTH_OF_YEAR);
 		int d = date.get(ChronoField.DAY_OF_MONTH);
@@ -84,6 +83,14 @@ public class Asn1GeneralizedTime implements Asn1Item{
 			int offsetHours = (secs / (60 * 60));
 			s += String.format(OFFSET_FORMAT, offsetHours, offsetMins);
 		}
-		collector.augmentAndAppend(0x18, ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8)));
+		return s;
+	}
+	@Override
+	public String toString(){
+		return "GENERALIZED TIME " + getDateString();
+	}
+	@Override
+	public void writeTo(Asn1Collector collector) {
+		collector.augmentAndAppend(0x18, ByteBuffer.wrap(getDateString().getBytes(StandardCharsets.UTF_8)));
 	}
 }

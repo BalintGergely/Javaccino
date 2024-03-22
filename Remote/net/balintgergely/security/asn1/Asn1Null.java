@@ -13,4 +13,8 @@ public class Asn1Null implements Asn1Item{
 	public void writeTo(Asn1Collector collector) {
 		collector.append(ByteBuffer.wrap(DATA).asReadOnlyBuffer());
 	}
+	@Override
+	public String toString(){
+		return "NULL";
+	}
 }
