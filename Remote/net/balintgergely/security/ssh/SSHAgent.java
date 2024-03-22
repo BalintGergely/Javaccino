@@ -1,4 +1,4 @@
-package net.balintgergely.remote.security.ssh;
+package net.balintgergely.security.ssh;
 
 import java.io.Closeable;
 import java.io.IOException;

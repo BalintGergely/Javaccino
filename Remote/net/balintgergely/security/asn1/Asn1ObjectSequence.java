@@ -1,4 +1,4 @@
-package net.balintgergely.remote.security.asn1;
+package net.balintgergely.security.asn1;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -21,17 +21,16 @@ public abstract class Asn1ObjectSequence implements Asn1Item, Cloneable{
 		this(raw,false);
 	}
 	public Asn1ObjectSequence(Asn1RawItem raw,boolean deep){
-		ArrayList<Asn1Item> itemTemp = new ArrayList<>();
+		items = new ArrayList<>();
 		ByteBuffer c = raw.getContent();
 		while(c.hasRemaining()){
 			Asn1RawItem r = new Asn1RawItem(c);
 			if(deep){
-				itemTemp.add(r.resolve(true));
+				items.add(r.resolve(true));
 			}else{
-				itemTemp.add(r);
+				items.add(r);
 			}
 		}
-		items = List.copyOf(itemTemp);
 	}
 	@Override
 	public Asn1ObjectSequence duplicate(){

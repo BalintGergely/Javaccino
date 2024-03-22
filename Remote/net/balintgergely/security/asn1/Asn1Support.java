@@ -1,4 +1,6 @@
-package net.balintgergely.remote.security.asn1;
+package net.balintgergely.security.asn1;
+
+import static net.balintgergely.security.asn1.Asn1ContextSequence.wrap;
 
 import java.math.BigInteger;
 import java.security.InvalidAlgorithmParameterException;
@@ -10,8 +12,6 @@ import java.security.spec.PSSParameterSpec;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
-
-import static net.balintgergely.remote.security.asn1.Asn1ContextSequence.wrap;
 
 public class Asn1Support {
 	public static record AlgorithmId(Asn1AlgorithmId algorithm,AlgorithmParameterSpec parameters){}

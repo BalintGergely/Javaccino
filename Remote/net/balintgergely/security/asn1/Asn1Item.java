@@ -1,4 +1,4 @@
-package net.balintgergely.remote.security.asn1;
+package net.balintgergely.security.asn1;
 
 /**
  * An abstract Asn1Item.

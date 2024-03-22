@@ -1,4 +1,4 @@
-package net.balintgergely.remote.security.asn1;
+package net.balintgergely.security.asn1;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;

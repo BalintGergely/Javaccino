@@ -1,4 +1,6 @@
-package net.balintgergely.remote.certificates;
+package net.balintgergely.security;
+
+import static net.balintgergely.security.asn1.Asn1ContextSequence.wrap;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -22,17 +24,15 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.security.auth.x500.X500Principal;
 
-import net.balintgergely.remote.security.asn1.Asn1BitString;
-import net.balintgergely.remote.security.asn1.Asn1Collector;
-import net.balintgergely.remote.security.asn1.Asn1GeneralizedTime;
-import net.balintgergely.remote.security.asn1.Asn1Integer;
-import net.balintgergely.remote.security.asn1.Asn1Item;
-import net.balintgergely.remote.security.asn1.Asn1RawItem;
-import net.balintgergely.remote.security.asn1.Asn1Sequence;
-import net.balintgergely.remote.security.asn1.Asn1Support;
-import net.balintgergely.remote.security.asn1.Asn1Support.AlgorithmId;
-
-import static net.balintgergely.remote.security.asn1.Asn1ContextSequence.wrap;
+import net.balintgergely.security.asn1.Asn1BitString;
+import net.balintgergely.security.asn1.Asn1Collector;
+import net.balintgergely.security.asn1.Asn1GeneralizedTime;
+import net.balintgergely.security.asn1.Asn1Integer;
+import net.balintgergely.security.asn1.Asn1Item;
+import net.balintgergely.security.asn1.Asn1RawItem;
+import net.balintgergely.security.asn1.Asn1Sequence;
+import net.balintgergely.security.asn1.Asn1Support;
+import net.balintgergely.security.asn1.Asn1Support.AlgorithmId;
 
 public class CertificateMaker {
 	@SuppressWarnings("unchecked")
@@ -68,7 +68,7 @@ public class CertificateMaker {
 			new Asn1GeneralizedTime(validFrom),
 			new Asn1GeneralizedTime(validUntil)
 		);
-		BigInteger serial = serialNumber.updateAndGet(BigInteger.ONE::add);
+		BigInteger serial = serialNumber.accumulateAndGet(BigInteger.ONE,BigInteger::add);
 		Asn1Item tbs = new Asn1Sequence(
 			wrap(0x80,new Asn1Integer(1)), // Version number
 			new Asn1Integer(serial),
