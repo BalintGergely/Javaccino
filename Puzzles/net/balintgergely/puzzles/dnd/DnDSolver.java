@@ -216,6 +216,9 @@ public class DnDSolver {
 		for(int y = 0;y < 8;y++){
 			String line = sc.nextLine();
 			for(int x = 0;x < 8;x++){
+				if(x == line.length()){
+					break;
+				}
 				switch(line.charAt(x)){
 					case 'X':
 					case 'x': cells[offset(x, y)] = DnDPuzzle.CELL_ENEMY; break;
