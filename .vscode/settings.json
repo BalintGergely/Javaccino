@@ -3,6 +3,7 @@
 	"java.project.sourcePaths": [
 		"Utility",
 		"Remote",
-		"Puzzles"
+		"Puzzles",
+		"Robotics"
 	]
 }

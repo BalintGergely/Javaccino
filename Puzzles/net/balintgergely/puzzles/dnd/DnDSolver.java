@@ -292,7 +292,8 @@ public class DnDSolver {
 			solver = solver.flatMap(l ->
 				StreamSupport.intStream(Spliterators.spliterator(cf,CONFIG_ARRAY_CHARACTERISTICS),false)
 				.unordered()
-				.mapToLong(r -> l | (((long)r) << offset)));
+				.mapToLong(r -> l | (((long)r) << offset))
+			);
 
 			solver = solver.filter(k -> testRow(puzzle, k, finalRow));
 

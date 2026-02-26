@@ -1,0 +1,41 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "java",
+			"name": "HackMatcher",
+			"request": "launch",
+			"mainClass": "net.balintgergely.robotics.hm.HackMatcher",
+			"projectName": "Javaccino_624e2115"
+		},
+		{
+			"type": "java",
+			"name": "Ruminate",
+			"request": "launch",
+			"mainClass": "net.balintgergely.puzzles.bp.Ruminate",
+			"projectName": "Javaccino_624e2115"
+		},
+		{
+			"type": "java",
+			"name": "LiquidPuzzle",
+			"request": "launch",
+			"mainClass": "net.balintgergely.puzzles.bp.LiquidPuzzle",
+			"projectName": "Javaccino_624e2115"
+		},
+		{
+			"type": "java",
+			"name": "Launch Java Program",
+			"request": "launch",
+			"mainClass": ""
+		},
+		{
+			"type": "java",
+			"name": "Current File",
+			"request": "launch",
+			"mainClass": "${file}"
+		}
+	]
+}
