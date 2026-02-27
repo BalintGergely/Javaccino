@@ -6,6 +6,13 @@
 	"configurations": [
 		{
 			"type": "java",
+			"name": "BitboardState",
+			"request": "launch",
+			"mainClass": "net.balintgergely.robotics.hm.BitboardState",
+			"projectName": "Javaccino_624e2115"
+		},
+		{
+			"type": "java",
 			"name": "HackMatcher",
 			"request": "launch",
 			"mainClass": "net.balintgergely.robotics.hm.HackMatcher",

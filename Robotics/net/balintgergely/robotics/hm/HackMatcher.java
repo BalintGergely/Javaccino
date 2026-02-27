@@ -38,6 +38,12 @@ public class HackMatcher{
 		BOARD_PANEL_CENTER_OFFSET = 107,
 		BOARD_PANEL_RIGHT_OFFSET = 209;
 	private static final int MODE_SINGLEPLAYER = 0, MODE_MULTIPLAYER_P1 = 1, MODE_MULTIPLAYER_P2 = 2;
+	private static final byte[] BRICK_TYPES = BitboardState.getBrickTypes();
+	private static final byte[] INVERTED_BRICK_TYPES;
+	static{
+		INVERTED_BRICK_TYPES = new byte[0x10];
+		for(int i = 0;i < BRICK_TYPES.length;i++){ INVERTED_BRICK_TYPES[BRICK_TYPES[i]] = (byte)i; }
+	}
 	private BufferedImage rowPattern;
 	private BufferedImage exaPattern;
 	private BufferedImage[] blockPatternArray;
@@ -160,22 +166,22 @@ public class HackMatcher{
 		BufferedImage sc = robot.createScreenCapture(boardPanel.getBoundsOnScreen());
 		return ImageUtils.copy(sc, BufferedImage.TYPE_INT_ARGB, scale);
 	}
-	private HackMatchState readBoardState(BufferedImage board) throws Exception{
+	private BitboardState readBoardState(BufferedImage board) throws Exception{
 		MatchResult alignment = Convolution.bestMatch(board, rowPattern);
 		
-		int y = alignment.y() % VISUAL_BRICK_HEIGHT + 1;
+		int ry = alignment.y() % VISUAL_BRICK_HEIGHT + 1;
 
-		HackMatchState state = new HackMatchState();
-		byte[] row = new byte[6];
+		BitboardState state = BitboardState.EMPTY;
+		int y = 0;
 
-		while(y + VISUAL_BRICK_HEIGHT < board.getHeight()){
-			boolean rowHadElements = false;
+		while(ry + VISUAL_BRICK_HEIGHT < board.getHeight()){
+			boolean rowHasAny = false;
 			for(int x = 0;x < 6;x++){
-				if(state.getHeight() != 0 && state.getAt(x, state.getHeight() - 1) == HackMatchState.EMPTY){
+				if(y != 0 && state.getBrick(x, y - 1) == HackMatchState.EMPTY){
 					continue;
 				}
 				int rx = 1 + x * VISUAL_BRICK_WIDTH;
-				BufferedImage brickImage = board.getSubimage(rx, y, VISUAL_BRICK_WIDTH, VISUAL_BRICK_HEIGHT);
+				BufferedImage brickImage = board.getSubimage(rx, ry, VISUAL_BRICK_WIDTH, VISUAL_BRICK_HEIGHT);
 				MatchResult r = Convolution.bestMatchAtOrigin(brickImage, blockPatternArray);
 				boolean valid = false;
 				if(r.pid() == 0 && r.score() > 0.9){
@@ -186,22 +192,20 @@ public class HackMatcher{
 				}
 				
 				if(valid){
-					row[x] = (byte)(r.pid());
-					rowHadElements = true;
-				}else{
-					row[x] = 0;
+					state = state.setBrick(x, y, BRICK_TYPES[r.pid()]);
+					rowHasAny = true;
 				}
 			}
-			if(!rowHadElements){
+			if(!rowHasAny){
 				break;
 			}
-			state = state.addBlockRowBottom(row);
-			y += VISUAL_BRICK_HEIGHT;
+			ry += VISUAL_BRICK_HEIGHT;
+			y++;
 		}
 
 		return state;
 	}
-	private BufferedImage renderState(BufferedImage image,HackMatchState state) throws Exception{
+	private BufferedImage renderState(BufferedImage image,BitboardState state) throws Exception{
 		if(image == null){
 			image = new BufferedImage(VISUAL_BOARD_WIDTH, VISUAL_BOARD_HEIGHT, BufferedImage.TYPE_INT_ARGB);
 		}
@@ -212,9 +216,10 @@ public class HackMatcher{
 			g2d.dispose();
 			return image;
 		}
-		for(int y = 0;y < state.getHeight();y++){
+		for(int y = 0;y < 10;y++){
 			for(int x = 0;x < 6;x++){
-				g2d.drawImage(blockPatternArray[state.getAt(x, y)], x * VISUAL_BRICK_WIDTH, y * VISUAL_BRICK_HEIGHT, null);
+				byte brick = state.getBrick(x, y);
+				g2d.drawImage(blockPatternArray[INVERTED_BRICK_TYPES[brick]], x * VISUAL_BRICK_WIDTH, y * VISUAL_BRICK_HEIGHT, null);
 			}
 		}
 		g2d.dispose();
@@ -414,11 +419,12 @@ public class HackMatcher{
 			matcher.setMode(modeBox.getSelectedIndex());
 			System.out.println("Scanning...");
 			BufferedImage board = matcher.makeScreenshot();
-			HackMatchState state = matcher.readBoardState(board);
+			BitboardState state = matcher.readBoardState(board);
+			System.out.println(state);
 			matcher.renderState(outImage,state);
 			label.repaint();
-			label.setText(state.getScore()+"  "+state.getHeight());
-			if(hover.getModel().isRollover()){
+			//label.setText(state.getScore()+"  "+state.getHeight());
+			/*if(hover.getModel().isRollover()){
 				HackMatchState newState;
 				if(state.equals(stuck)){
 					newState = state;
@@ -446,7 +452,7 @@ public class HackMatcher{
 					matcher.recalibrate();
 					Thread.sleep(300);
 				}
-			}else{
+			}else*/{
 				matcher.endScroll();
 				matcher.savedLocation = -1;
 				stuck = null;
