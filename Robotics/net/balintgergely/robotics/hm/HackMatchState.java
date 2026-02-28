@@ -1,340 +1,403 @@
 package net.balintgergely.robotics.hm;
 
-import java.util.Arrays;
+public final class HackMatchState {
 
-public final class HackMatchState{
-	public static final int LEFT = 0,DOWN = 1,RIGHT = 2,UP = 3;
+	// Gameplay notes:
+	// The game never generates new layers such that a region of 4 is formed.
+	// New layers are generated before being seen and may become part of a match.
+	// EXA NINA's attack does not affect the brick held by the EXA.
+	// Matching SUPERs will leave the brick held by the EXA, as well as other supers of the same type.
+	// Garbage remembers it's original color.
+	// Matching loop: Find match, revert garbage, apply gravity, repeat.
+
 	public static final byte
-		EMPTY = 0,
-		GARBAGE = 1,
-		TILE_LEAST = 2,
-		TILE_R = 2,
-		TILE_G = 3,
-		TILE_B = 4,
-		TILE_M = 5,
-		TILE_Y = 6,
-		SUPER_LEAST = 7,
-		SUPER_R = 7,
-		SUPER_G = 8,
-		SUPER_B = 9,
-		SUPER_M = 10,
-		SUPER_Y = 11;
-	public static final int
-		FLIP_OFF = 1,
-		GRAB_OFF = 1 + 6;
-	public static final int WIDTH = 6, HEIGHT = 10;
-	private static byte[][] cloneBoard(byte[][] board,int minChange){
-		board = board.clone();
-		for(int i = minChange;i < board.length;i++){
-			board[i] = board[i].clone();
-		}
-		return board;
+		BRICK_EMPTY    = 0b0000,
+		BRICK_GARBAGE  = 0b1000,
+		BRICK_R        = 0b0001,
+		BRICK_G        = 0b0010,
+		BRICK_B        = 0b0011,
+		BRICK_M        = 0b0100,
+		BRICK_Y        = 0b0101,
+		BRICK_SUPER_R  = 0b1001,
+		BRICK_SUPER_G  = 0b1010,
+		BRICK_SUPER_B  = 0b1011,
+		BRICK_SUPER_M  = 0b1100,
+		BRICK_SUPER_Y  = 0b1101,
+		BRICK_UNKNOWN  = 0b1111;
+	
+	public static byte[] getBrickTypes(){
+		return new byte[]{
+			BRICK_EMPTY,
+			BRICK_GARBAGE,
+			BRICK_R,
+			BRICK_G,
+			BRICK_B,
+			BRICK_M,
+			BRICK_Y,
+			BRICK_SUPER_R,
+			BRICK_SUPER_G,
+			BRICK_SUPER_B,
+			BRICK_SUPER_M,
+			BRICK_SUPER_Y,
+			BRICK_UNKNOWN
+		};
 	}
-	private static int isPowered(byte[][] board,int x,int y,int d,int r,byte kind){
-		if(kind == GARBAGE){
-			kind = board[y][x];
-		}else if(board[y][x] != kind){
+
+	public static final int WIDTH = 6, HEIGHT = 10;
+	public static final long
+		COL_0 = 0b100000_100000_100000_100000_100000_100000_100000_100000_100000_100000_0000L,
+		COL_5 = COL_0 >>> 5,
+		ROW_0 = 0b111111_000000_000000_000000_000000_000000_000000_000000_000000_000000_0000L,
+		ROW_1 = ROW_0 >>> 6,
+		ROW_9 = ROW_0 >>> 6 * 9,
+		BOARD = 0b111111_111111_111111_111111_111111_111111_111111_111111_111111_111111_0000L,
+		HAND  = 0b000000_000000_000000_000000_000000_000000_000000_000000_000000_000000_1000L,
+		EXA   = 0b000000_000000_000000_000000_000000_000000_000000_000000_000000_000000_0111L,
+		BOARD_HAND = BOARD | HAND;
+	
+	public static final long
+		FLAG_TOUCHES_TOP_ROW = 0b000000_000000_000000_000000_000000_000000_000000_000000_000000_000000_1000L;
+
+	private final long b0,b1,b2,b3;
+
+	private static long col(int col){
+		return COL_0 >>> col;
+	}
+	private static long row(int row){
+		return ROW_0 >>> (WIDTH * row);
+	}
+
+	private HackMatchState(long b0,long b1,long b2,long b3){
+		this.b0 = b0; this.b1 = b1; this.b2 = b2; this.b3 = b3;
+	}
+
+	public static final HackMatchState EMPTY = new HackMatchState(0, 0, 0, 0);
+
+	public long occupied(){
+		return (b0 | b1 | b2 | b3) & BOARD_HAND;
+	}
+	public long empty(){
+		return ~b0 & ~b1 & ~b2 & ~b3 & BOARD_HAND;
+	}
+	public long unknown(){
+		return b0 & b1 & b2 & b3 & BOARD_HAND;
+	}
+	public long known(){
+		return occupied() & ~unknown() & BOARD_HAND;
+	}
+	public long supers(){
+		return b0 & (b1 | b2 | b3) & ~(b1 & b2 & b3) & BOARD_HAND;
+	}
+	public boolean handOccupied(){
+		return (occupied() & HAND) != 0;
+	}
+
+	public int getEXALocation(){
+		return (int)(b0 & EXA) - 1;
+	}
+	public HackMatchState setEXALocation(int pos){
+		return new HackMatchState((b0 & ~EXA) | ((pos + 1) & EXA), b1, b2, b3);
+	}
+
+	private HackMatchState set(long bit,byte encoding){
+		long rb0 = this.b0 & ~bit | ((encoding >>> 3) & 1) * bit;
+		long rb1 = this.b1 & ~bit | ((encoding >>> 2) & 1) * bit;
+		long rb2 = this.b2 & ~bit | ((encoding >>> 1) & 1) * bit;
+		long rb3 = this.b3 & ~bit | ((encoding >>> 0) & 1) * bit;
+		return new HackMatchState(rb0, rb1, rb2, rb3);
+	}
+	private byte get(long bit){
+		return (byte)(
+			  ((b0 & bit) == 0 ? 0 : 0b1000)
+			| ((b1 & bit) == 0 ? 0 : 0b0100)
+			| ((b2 & bit) == 0 ? 0 : 0b0010)
+			| ((b3 & bit) == 0 ? 0 : 0b0001));
+	}
+
+	public HackMatchState setBrick(int x,int y,byte brick){
+		return set(row(y) & col(x), brick);
+	}
+	public byte getBrick(int x,int y){
+		return get(row(y) & col(x));
+	}
+	public HackMatchState setHand(byte brick){
+		return set(HAND, brick);
+	}
+	public byte getHand(){
+		return get(HAND);
+	}
+	public int freeLevelCount(){
+		return (Long.numberOfTrailingZeros((b0 | b1 | b2 | b3) & BOARD) - 4) / 6;
+	}
+
+	public long swapTargetsInCol(int col){
+		long x = Long.lowestOneBit(occupied() & col(col));
+		return x << 6 | x;
+	}
+	private static long computeSwap(long m,long bit0,long bit1){
+		boolean d = ((m & bit0) != 0) != ((m & bit1) != 0);
+		return d ? (m ^ (bit0 | bit1)) : m;
+	}
+	public HackMatchState swap(int col){
+		long sw1 = Long.lowestOneBit(occupied() & col(col));
+		long sw0 = sw1 << 6;
+		long rb0 = computeSwap(b0, sw0, sw1);
+		long rb1 = computeSwap(b1, sw0, sw1);
+		long rb2 = computeSwap(b2, sw0, sw1);
+		long rb3 = computeSwap(b3, sw0, sw1);
+		return new HackMatchState(rb0,rb1,rb2,rb3);
+	}
+	private static long computeMove(long m,long bit0,long bit1){
+		return (m & ~bit0) | ((m & bit0) == 0 ? 0 : bit1);
+	}
+	public HackMatchState grab(int col){
+		long gb = Long.lowestOneBit(occupied() & col(col));
+		long rb0 = computeMove(b0,gb,HAND);
+		long rb1 = computeMove(b1,gb,HAND);
+		long rb2 = computeMove(b2,gb,HAND);
+		long rb3 = computeMove(b3,gb,HAND);
+		return new HackMatchState(rb0, rb1, rb2, rb3);
+	}
+	public boolean colOccupied(int col){
+		return (occupied() & col(col)) != 0;
+	}
+	public long dropTargetInCol(int col){
+		return Long.highestOneBit(~occupied() & col(col));
+	}
+	public HackMatchState drop(int col){
+		long tb = Long.highestOneBit(~occupied() & col(col));
+		long rb0 = computeMove(b0,HAND,tb);
+		long rb1 = computeMove(b1,HAND,tb);
+		long rb2 = computeMove(b2,HAND,tb);
+		long rb3 = computeMove(b3,HAND,tb);
+		return new HackMatchState(rb0, rb1, rb2, rb3);
+	}
+	private static long detectMatch2(long board){
+		long hmatches = ((board & ~COL_0 & BOARD) << 1) & board;
+		long vmatches = ((board & ~ROW_0 & BOARD) << 6) & board;
+		return hmatches | hmatches >>> 1 | vmatches | vmatches >>> 6;
+	}
+	private long processSuperPop(long supers,long board){
+		long sboard = supers & board;
+		long superMatch = detectMatch2(sboard);
+		if(superMatch != 0){
+			return superMatch | (board & ~supers);
+		}else{
 			return 0;
 		}
-		if(r == 0){
-			return 1;
+	}
+	public long computeSuperPop(){
+		return
+			  processSuperPop(b0, ~b1 & ~b2 &  b3 & BOARD)
+			| processSuperPop(b0, ~b1 &  b2 & ~b3 & BOARD)
+			| processSuperPop(b0, ~b1 &  b2 &  b3 & BOARD)
+			| processSuperPop(b0,  b1 & ~b2 & ~b3 & BOARD)
+			| processSuperPop(b0,  b1 & ~b2 &  b3 & BOARD);
+	}
+	private static long flood(long x){
+		return
+			  (x & (~COL_0 & BOARD)) <<  1
+			| (x & (~COL_5 & BOARD)) >>> 1
+			| (x & (~ROW_0 & BOARD)) <<  6
+			| (x & (~ROW_9 & BOARD)) >>> 6;
+	}
+	private static long processSingleFlow(long board,long flow){
+		while(true){
+			long newFlow = flow | board & flood(flow);
+			if(newFlow == flow){
+				break;
+			}
+			flow = newFlow;
 		}
-		int km = 0;
-		for(int v = 0;v < 4;v++){
-			if(v == d){
-				continue;
-			}
-			int dx = x;
-			int dy = y;
-			switch(v){
-				case LEFT: dx--; break;
-				case UP: dy--; break;
-				case RIGHT: dx++; break;
-				case DOWN: dy++; break;
-			}
-			if(dx < 0 || dx >= 6){
-				continue;
-			}
-			if(dy < 0 || dy >= board.length){
-				continue;
-			}
-			int k = isPowered(board, dx, dy, (v + 2) % 4, r - 1, kind);
-			if(k >= r){
-				return k + 1;
-			}
-			if(km < k){
-				km = k;
-			}
+		long mx = 0;
+		if((flow & ROW_0) != 0){
+			mx |= FLAG_TOUCHES_TOP_ROW;
 		}
-		return km + 1;
+		if(4 <= Long.bitCount(flow)){
+			mx |= flow;
+		}
+		return mx;
 	}
-	private final byte[][] board;
-	private final byte hand;
-	private final transient HackMatchState parent;
-	private final int latestMove;
-	private final int depth;
-	private volatile int score = -1;
-	public int getDepth(){
-		return depth;
+	private static long processSingleMatchAt(long board,long mod){
+		mod &= board;
+		return mod != 0 ? processSingleFlow(board, mod) : 0;
 	}
-	public int getHeight(){
-		return board.length;
+	public long computeNormalPopAt(long mod){
+		return
+			  processSingleMatchAt(~b0 & ~b1 & ~b2 &  b3 & BOARD, mod)
+			| processSingleMatchAt(~b0 & ~b1 &  b2 & ~b3 & BOARD, mod)
+			| processSingleMatchAt(~b0 & ~b1 &  b2 &  b3 & BOARD, mod)
+			| processSingleMatchAt(~b0 &  b1 & ~b2 & ~b3 & BOARD, mod)
+			| processSingleMatchAt(~b0 &  b1 & ~b2 &  b3 & BOARD, mod);
 	}
-	public byte getAt(int x,int y){
-		return board[y][x];
-	}
-	public HackMatchState getParent(){
-		return parent;
-	}
-	public boolean hasLatestMove(){
-		return latestMove != 0;
-	}
-	public boolean isLatestMoveSwap(){
-		return latestMove < GRAB_OFF;
-	}
-	public int getLatestMoveX(){
-		return (latestMove - 1) % 6;
-	}
-	private HackMatchState(byte[][] board,byte hand,HackMatchState parent,int lastMove,int depth){
-		this.board = board;
-		this.hand = hand;
-		this.parent = parent;
-		this.latestMove = lastMove;
-		this.depth = depth;
-		int y = board.length - 1;
-		if(y >= 0){
-			for(int x = 0;x < 6;x++){
-				if(board[y][x] != EMPTY){
-					return;
+	private static long processAnyMatch(long board){
+		long mx = 0;
+		while(board != 0){
+			long flow = Long.lowestOneBit(board);
+			while(true){
+				long newFlow = flow | board & flood(flow);
+				if(newFlow == flow){
+					break;
 				}
+				flow = newFlow;
 			}
-			throw new RuntimeException("Invariant violated!");
+			if((flow & ROW_0) != 0){
+				mx |= FLAG_TOUCHES_TOP_ROW;
+			}
+			if(4 <= Long.bitCount(flow)){
+				mx |= flow;
+			}
+			board = board & ~flow;
 		}
+		return mx;
 	}
-	public HackMatchState(){
-		this(new byte[0][],EMPTY,null,0,0);
+	public long computeAnyPop(){
+		return
+			  processAnyMatch(~b0 & ~b1 & ~b2 &  b3 & BOARD)
+			| processAnyMatch(~b0 & ~b1 &  b2 & ~b3 & BOARD)
+			| processAnyMatch(~b0 & ~b1 &  b2 &  b3 & BOARD)
+			| processAnyMatch(~b0 &  b1 & ~b2 & ~b3 & BOARD)
+			| processAnyMatch(~b0 &  b1 & ~b2 &  b3 & BOARD);
 	}
-	public boolean isHoldingTile(){
-		return hand != EMPTY;
-	}
-	public HackMatchState addBlockRow(byte[] row){
-		byte[][] newBoard = new byte[getHeight() + 1][];
-		System.arraycopy(board, 0, newBoard, 1, getHeight());
-		newBoard[0] = Arrays.copyOf(row, WIDTH);
-		return new HackMatchState(newBoard,hand,null,0,depth);
-	}
-	public HackMatchState addBlockRowBottom(byte[] row){
-		byte[][] newBoard = new byte[getHeight() + 1][];
-		System.arraycopy(board, 0, newBoard, 0, getHeight());
-		newBoard[getHeight()] = Arrays.copyOf(row, WIDTH);
-		return new HackMatchState(newBoard,hand,null,0,0);
-	}
-	public int getColumnHeight(int x){
-		int y = board.length;
-		while(y > 0){
-			y--;
-			if(board[y][x] != EMPTY){
-				return y + 1;
-			}
+	private static final long COL_SHIFT = 0b000001_000001_000001_000001_000001_000001_000001_000001_000001_000001L;
+	/**
+	 * Pop all blocks specified by the pattern.
+	 * All garbage in the vicinity will be transformed into unknown.
+	 */
+	public HackMatchState pop(long pop){
+		
+		long ga = b0 & ~b1 & ~b2 & ~b3;
+		long unknown = ga & flood(pop);
+
+		long b0 = this.b0 | unknown;
+		long b1 = this.b1 | unknown;
+		long b2 = this.b2 | unknown;
+		long b3 = this.b3 | unknown;
+			
+		long rb0 = b0 & HAND;
+		long rb1 = b1 & HAND;
+		long rb2 = b2 & HAND;
+		long rb3 = b3 & HAND;
+
+		long write = ROW_0;
+		for(int i = 0;i < 10;i++){
+			long read = row(i) & ~pop;
+			rb0 |= write & (b0 & read) * COL_SHIFT;
+			rb1 |= write & (b1 & read) * COL_SHIFT;
+			rb2 |= write & (b2 & read) * COL_SHIFT;
+			rb3 |= write & (b3 & read) * COL_SHIFT;
+			long readCols = read * COL_SHIFT;
+			write = (write & ~readCols) | ((write & readCols) >>> 6);
 		}
-		return 0;
+
+		return new HackMatchState(rb0, rb1, rb2, rb3);
 	}
-	public HackMatchState flip(int x){
-		int h = getColumnHeight(x);
-		int y0 = h - 1;
-		int y1 = h - 2;
-		if(h < 2){
-			return this;
-		}else{
-			byte v0 = board[y0][x];
-			byte v1 = board[y1][x];
-			if(v0 == v1){
-				return this;
-			}
-			byte[][] newBoard = board.clone();
-			newBoard[y0] = newBoard[y0].clone();
-			newBoard[y1] = newBoard[y1].clone();
-			newBoard[y0][x] = v1;
-			newBoard[y1][x] = v0;
-			return new HackMatchState(newBoard,hand,this,FLIP_OFF + x,depth + 1);
+	public int rateState(){
+		int specialCount = Long.bitCount(supers() & BOARD_HAND);
+		int freeLevelCount = (Long.numberOfTrailingZeros(occupied() & BOARD) - 4) / 6;
+		int emptyOrUnknownCount = Long.bitCount((unknown() | empty()) & BOARD_HAND);
+
+		int freeLevelScore;
+		switch(freeLevelCount){
+			case 0: freeLevelScore = 0;
+			case 1: freeLevelScore = 40000;
+			case 2: freeLevelScore = 60000;
+			case 3: freeLevelScore = 70000;
+			default: freeLevelScore = 80000;
 		}
+
+		int emptyHandBonus = handOccupied() ? 0 : 1000000;
+
+		return emptyOrUnknownCount * 50 + freeLevelScore + specialCount * 5000 + emptyHandBonus;
 	}
-	public HackMatchState grabOrDrop(int x){
-		int h = getColumnHeight(x);
-		byte[][] newBoard;
-		byte newHand;
-		if(hand == EMPTY){
-			if(h == 0){
-				return this;
-			}
-			int y = h - 1;
-			newHand = board[y][x];
-			boolean doShrink = false;
-			if(h == board.length){
-				doShrink = true;
-				for(int dx = 0;dx < 6;dx++){
-					if(dx != x && board[y][dx] != EMPTY){
-						doShrink = false;
-						break;
-					}
-				}
-			}
-			if(doShrink){
-				newBoard = Arrays.copyOf(board, y);
-			}else{
-				newBoard = board.clone();
-				newBoard[y] = newBoard[y].clone();
-				newBoard[y][x] = EMPTY;
-			}
-		}else{
-			if(h >= 8){
-				return this;
-			}
-			newHand = EMPTY;
-			int y = h;
-			if(y == board.length){
-				newBoard = Arrays.copyOf(board, y + 1);
-				newBoard[y] = new byte[6];
-			}else{
-				newBoard = Arrays.copyOf(board, board.length);
-				newBoard[y] = newBoard[y].clone();
-			}
-			newBoard[y][x] = hand;
-		}
-		return new HackMatchState(newBoard, newHand, this, GRAB_OFF + x, depth + 1);
+	@Override
+	public boolean equals(Object obj){
+		return obj instanceof HackMatchState that && this.b0 == that.b0 && this.b1 == that.b1 && this.b2 == that.b2 && this.b3 == that.b3;
 	}
-	@SuppressWarnings("unused")
-	private static byte[][] dropUp(byte[][] board){
-		for(int y = 0;y < board.length - 1;y++){
-			for(int x = 0;x < 6;x++){
-				if(board[y][x] == EMPTY && board[y + 1][x] != EMPTY){
-					board[y][x] = board[y + 1][x];
-					board[y + 1][x] = EMPTY;
-				}
-			}
-		}
-		int y = board.length;
-		main: while(true){
-			for(int x = 0;x < 6;x++){
-				if(board[y - 1][x] != EMPTY){
-					break main;
-				}
-			}
-			y--;
-		}
-		if(y < board.length){
-			return Arrays.copyOf(board, y);
-		}else{
-			return board;
-		}
-	}
-	private void clear(byte[][] target,int x,int y,byte kind){
-		if(target[y][x] != kind){
-			return;
-		}
-		target[y][x] = EMPTY;
-		for(int v = 0;v < 4;v++){
-			int dx = x;
-			int dy = y;
-			switch(v){
-				case LEFT: dx--; break;
-				case UP: dy--; break;
-				case RIGHT: dx++; break;
-				case DOWN: dy++; break;
-			}
-			if(dx < 0 || dx >= 6){
-				continue;
-			}
-			if(dy < 0 || dy >= getHeight()){
-				continue;
-			}
-			clear(target, dx, dy, kind);
-		}
-	}
-	@SuppressWarnings("unused")
-	private HackMatchState clearMatches(){
-		byte[][] board = this.board;
-		for(int y = 0;y < getHeight();y++){
-			for(int x = 0;x < 6;x++){
-				byte k = board[y][x];
-				if(TILE_LEAST <= k && k <= SUPER_LEAST){
-					if(isPowered(board, x, y, 5, 4, k) == 4){
-						if(board == this.board){
-							board = cloneBoard(board, y);
-						}
-						clear(board, x, y, k);
-					}
-				}
-			}
-		}
-		return this;
-	}
-	public int getScore(){
-		int score = this.score;
-		if(score == -1){
-			int superScore = 0;
-			score = 100000000;
-			for(int y = 0;y < getHeight();y++){
-				for(int x = 0;x < 6;x++){
-					byte kind = board[y][x];
-					if(kind == GARBAGE){
-						int p = isPowered(board, x, y, 5, 5, GARBAGE);
-						if(p >= 5){
-							score += 10000000;
-						}
-					}
-					if(TILE_LEAST <= kind && kind < SUPER_LEAST){
-						int p = isPowered(board, x, y, 5, 4, kind);
-						if(p >= 4){
-							score += 15000 + y * 100;
-						}else{
-							score += p * 10;
-						}
-					}
-					if(SUPER_LEAST <= kind){
-						int p = isPowered(board, x, y, 5, 2, kind);
-						if(p >= 2){
-							if(getHeight() > 6){
-								superScore += 100000 * getHeight();
-							}else{
-								superScore -= 600000;
-							}
-						}
-					}
-				}
-			}
-			if(getHeight() > 6){
-				score = (score / 10) - (getHeight() - 6) * 1000000;
-			}
-			score = score - getHeight() * 10000 - depth * 5;
-			score = score + superScore;
-			this.score = score;
-		}
-		return score;
-	}
+	@Override
 	public int hashCode(){
-		int k = Byte.hashCode(hand);
-		for(byte[] v : board){
-			k = k ^ Arrays.hashCode(v);
-		}
-		return k;
+		return ((Long.hashCode(b0) * 31 + Long.hashCode(b1)) * 31 + Long.hashCode(b2)) * 31 + Long.hashCode(b3);
 	}
-	public boolean equals(Object other){
-		if(other instanceof HackMatchState){
-			HackMatchState that = (HackMatchState)other;
-			if(hand != that.hand){
-				return false;
+	private void appendCode(long bit,StringBuilder sb){
+		sb.append((b0 & bit) == 0 ? '0' : '1');
+		sb.append((b1 & bit) == 0 ? '0' : '1');
+		sb.append((b2 & bit) == 0 ? '0' : '1');
+		sb.append((b3 & bit) == 0 ? '0' : '1');
+	}
+	@Override
+	public String toString(){
+		StringBuilder sb = new StringBuilder();
+		for(int y = 0;y < 10;y++){
+			for(int x = 0;x < 6;x++){
+				if(x != 0) sb.append(' ');
+				appendCode(row(y) & col(x), sb);
 			}
-			if(board.length != that.board.length){
-				return false;
-			}
-			for(int i = 0;i < board.length;i++){
-				if(!Arrays.equals(board[i], that.board[i])){
-					return false;
+			sb.append(System.lineSeparator());
+		}
+		sb.append("Hand: ");
+		appendCode(HAND, sb);
+		return sb.toString();
+	}
+
+	public static void main(String[] atgs){
+
+		for(byte i = 0;i < 0x10;i++){
+			for(int y = 0;y < 10;y++){
+				for(int x = 0;x < 6;x++){
+					HackMatchState state = EMPTY.setBrick(x,y,i);
+					for(int ry = 0;ry < 10;ry++){
+						for(int rx = 0;rx < 6;rx++){
+							byte read = state.getBrick(rx,ry);
+							assert read == (x == rx && y == ry ? i : 0);
+						}
+					}
 				}
 			}
-			return true;
 		}
-		return false;
+		HackMatchState state = HackMatchState.EMPTY;
+		for(int y = 0;y < 10;y++){
+			for(int x = 0;x < 6;x++){
+				state = state.setBrick(x, y, BRICK_B);
+			}
+		}
+		for(int y = 1;y < 10;y++){
+			for(int x = 0;x < 6;x++){
+				HackMatchState local = state;
+				int z = 10;
+				while(y + 1 < z){
+					z--;
+					local = local.setBrick(x, z, BRICK_EMPTY);
+				}
+				local = local.setBrick(x, y, BRICK_G);
+				local = local.setBrick(x, y-1, BRICK_R);
+				local = local.swap(x);
+				for(int rx = 0;rx < 6;rx++){
+					for(int ry = 0;ry < 10;ry++){
+						if(rx != x || ry < y -1){
+							assert local.getBrick(rx, ry) == BRICK_B;
+						}else if(ry >  y){
+							assert local.getBrick(rx, ry) == BRICK_EMPTY;
+						}else if(ry == y){
+							assert local.getBrick(rx, ry) == BRICK_R;
+						}else if(ry == y - 1){
+							assert local.getBrick(rx, ry) == BRICK_G;
+						}
+					}
+				}
+			}
+		}
+
+		state = new HackMatchState(0x0L, 0x4401810000000001L, 0x830420000000000L, 0x1550010000000001L);
+
+		System.out.println(state);
+		StateTree st0 = StateTree.start(state, 0xfffffffe);
+		HackMatchState sx = st0.stateDirectlyAfter((byte)0x4);
+		System.out.println(sx);
+//		StateTree st1 = Stream.of(st0).mapMulti(StateTree::expand).filter(s -> s.getMoveCode() == 0).findAny().get();
+//		BitboardState sx = st0.stateDirectlyAfter((byte)0);
+		for(int i = 0;i < 1;i++){
+			sx = sx.pop(sx.computeAnyPop() | sx.computeSuperPop());
+		}
+		System.out.println(sx);
 	}
 }

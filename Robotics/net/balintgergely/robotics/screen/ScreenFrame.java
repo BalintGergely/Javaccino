@@ -69,6 +69,14 @@ public class ScreenFrame extends JFrame{
 	public CapturePanel getClient(){
 		return client;
 	}
+	public Point getClientLocation(){
+		return client.getLocationOnScreen();
+	}
+	public void setClientLocation(Point p){
+		Point cl = client.getLocationOnScreen();
+		Point ml = super.getLocationOnScreen();
+		super.setLocation(p.x - cl.x + ml.x, p.y - cl.y + ml.y);
+	}
 	private class MotionHelper extends MouseAdapter implements KeyListener{
 		private Point mouseDragOffset;
 		private Point getPointRelativeToFrame(MouseEvent e){
@@ -91,40 +99,16 @@ public class ScreenFrame extends JFrame{
 				ScreenFrame.this.setLocation(p.x - mouseDragOffset.x, p.y - mouseDragOffset.y);
 			}
 		}
-
-		@Override
-		public void mouseEntered(MouseEvent e) {
-			// TODO Auto-generated method stub
-			super.mouseEntered(e);
-		}
-
-		@Override
-		public void mouseExited(MouseEvent e) {
-			// TODO Auto-generated method stub
-			super.mouseExited(e);
-		}
-
-		@Override
-		public void mouseMoved(MouseEvent e) {
-			// TODO Auto-generated method stub
-			super.mouseMoved(e);
-		}
-
 		@Override
 		public void mousePressed(MouseEvent e) {
 			mouseDragOffset = getPointRelativeToFrame(e);
 		}
-
 		@Override
 		public void mouseReleased(MouseEvent e) {
 			mouseDragOffset = null;
 		}
-
 		@Override
-		public void mouseWheelMoved(MouseWheelEvent e) {
-			// TODO Auto-generated method stub
-			super.mouseWheelMoved(e);
-		}
+		public void mouseWheelMoved(MouseWheelEvent e) {}
 
 		@Override
 		public void keyPressed(KeyEvent e) {
@@ -145,16 +129,8 @@ public class ScreenFrame extends JFrame{
 		}
 
 		@Override
-		public void keyReleased(KeyEvent e) {
-			// TODO Auto-generated method stub
-			
-		}
-
+		public void keyReleased(KeyEvent e) {}
 		@Override
-		public void keyTyped(KeyEvent e) {
-			// TODO Auto-generated method stub
-			
-		}
-		
+		public void keyTyped(KeyEvent e) {}
 	}
 }

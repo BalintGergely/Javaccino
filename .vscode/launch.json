@@ -6,6 +6,13 @@
 	"configurations": [
 		{
 			"type": "java",
+			"name": "StateTree",
+			"request": "launch",
+			"mainClass": "net.balintgergely.robotics.hm.StateTree",
+			"projectName": "Javaccino_624e2115"
+		},
+		{
+			"type": "java",
 			"name": "BitboardState",
 			"request": "launch",
 			"mainClass": "net.balintgergely.robotics.hm.BitboardState",
