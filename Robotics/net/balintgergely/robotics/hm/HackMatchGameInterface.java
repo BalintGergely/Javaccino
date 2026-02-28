@@ -40,7 +40,8 @@ public class HackMatchGameInterface{
 		EXA_BRICK_Y = 239,
 		MODE_SINGLEPLAYER = 0,
 		MODE_MULTIPLAYER_P1 = 1,
-		MODE_MULTIPLAYER_P2 = 2;
+		MODE_MULTIPLAYER_P2 = 2,
+		MODE_MULTIPLAYER_P2_NO_NUMPAD = 3;
 	private static final BufferedImage ROW_PATTERN;
 	static{
 		try{
@@ -55,7 +56,6 @@ public class HackMatchGameInterface{
 	private CapturePanel boardPanel;
 	private ArrayBlockingQueue<Runnable> workerQueue;
 	private Thread worker;
-	private boolean isP2 = false;
 	private int mode = -1;
 	public HackMatchGameInterface() throws AWTException{
 		robot = new Robot();
@@ -87,15 +87,15 @@ public class HackMatchGameInterface{
 		switch(mode){
 			case MODE_SINGLEPLAYER:
 				left = BOARD_PANEL_CENTER_OFFSET;
-				isP2 = false;
 				break;
 			case MODE_MULTIPLAYER_P1:
 				left = BOARD_PANEL_LEFT_OFFSET;
-				isP2 = false;
 				break;
 			case MODE_MULTIPLAYER_P2:
 				left = BOARD_PANEL_RIGHT_OFFSET;
-				isP2 = true;
+			case MODE_MULTIPLAYER_P2_NO_NUMPAD:
+				left = BOARD_PANEL_RIGHT_OFFSET;
+				break;
 			default:
 				throw new IllegalArgumentException("Bad mode!");
 		}
@@ -119,35 +119,97 @@ public class HackMatchGameInterface{
 			throw new RuntimeException(e);
 		}
 	}
+	private int leftKey(){
+		switch(mode){
+			case MODE_SINGLEPLAYER:
+			case MODE_MULTIPLAYER_P1:
+				return KeyEvent.VK_A;
+			case MODE_MULTIPLAYER_P2:
+			case MODE_MULTIPLAYER_P2_NO_NUMPAD:
+				return KeyEvent.VK_LEFT;
+			default:
+				return 0;
+		}
+	}
+	private int rightKey(){
+		switch(mode){
+			case MODE_SINGLEPLAYER:
+			case MODE_MULTIPLAYER_P1:
+				return KeyEvent.VK_D;
+			case MODE_MULTIPLAYER_P2:
+			case MODE_MULTIPLAYER_P2_NO_NUMPAD:
+				return KeyEvent.VK_RIGHT;
+			default:
+				return 0;
+		}
+	}
+	private int downKey(){
+		switch(mode){
+			case MODE_SINGLEPLAYER:
+			case MODE_MULTIPLAYER_P1:
+				return KeyEvent.VK_S;
+			case MODE_MULTIPLAYER_P2:
+			case MODE_MULTIPLAYER_P2_NO_NUMPAD:
+				return KeyEvent.VK_DOWN;
+			default:
+				return 0;
+		}
+	}
+	private int grabKey(){
+		switch(mode){
+			case MODE_SINGLEPLAYER:
+			case MODE_MULTIPLAYER_P1:
+				return KeyEvent.VK_J;
+			case MODE_MULTIPLAYER_P2:
+				return KeyEvent.VK_NUMPAD0;
+			case MODE_MULTIPLAYER_P2_NO_NUMPAD:
+				return KeyEvent.VK_8;
+			default:
+				return 0;
+		}
+	}
+	private int swapKey(){
+		switch(mode){
+			case MODE_SINGLEPLAYER:
+			case MODE_MULTIPLAYER_P1:
+				return KeyEvent.VK_K;
+			case MODE_MULTIPLAYER_P2:
+				return KeyEvent.VK_DELETE;
+			case MODE_MULTIPLAYER_P2_NO_NUMPAD:
+				return KeyEvent.VK_9;
+			default:
+				return 0;
+		}
+	}
 	public void moveLeft(){
 		workerQueue.add(() -> {
-			robot.keyPress(isP2 ? KeyEvent.VK_LEFT : KeyEvent.VK_A);
+			robot.keyPress(leftKey());
 			sleep(60);
-			robot.keyRelease(isP2 ? KeyEvent.VK_LEFT : KeyEvent.VK_A);
+			robot.keyRelease(leftKey());
 			sleep(60);
 		});
 	}
 	public void moveRight(){
 		workerQueue.add(() -> {
-			robot.keyPress(isP2 ? KeyEvent.VK_RIGHT : KeyEvent.VK_D);
+			robot.keyPress(rightKey());
 			sleep(60);
-			robot.keyRelease(isP2 ? KeyEvent.VK_RIGHT : KeyEvent.VK_D);
+			robot.keyRelease(rightKey());
 			sleep(60);
 		});
 	}
 	public void grabOrDrop(){
 		workerQueue.add(() -> {
-			robot.keyPress(isP2 ? KeyEvent.VK_NUMPAD0 : KeyEvent.VK_J);
+			robot.keyPress(grabKey());
 			sleep(60);
-			robot.keyRelease(isP2 ? KeyEvent.VK_NUMPAD0 : KeyEvent.VK_J);
+			robot.keyRelease(grabKey());
 			sleep(60);
 		});
 	}
 	public void swap(){
 		workerQueue.add(() -> {
-			robot.keyPress(isP2 ? KeyEvent.VK_DELETE : KeyEvent.VK_K);
+			robot.keyPress(swapKey());
 			sleep(60);
-			robot.keyRelease(isP2 ? KeyEvent.VK_DELETE : KeyEvent.VK_K);
+			robot.keyRelease(swapKey());
 			sleep(60);
 		});
 	}
@@ -289,12 +351,12 @@ public class HackMatchGameInterface{
 				boolean shouldBeScrolling = !hasMovement && state.equals(p);
 				if(shouldBeScrolling){
 					if(!isScrolling){
-						robot.keyPress(isP2 ? KeyEvent.VK_DOWN : KeyEvent.VK_S);
+						robot.keyPress(downKey());
 						isScrolling = true;
 					}
 				}else{
 					if(isScrolling){
-						robot.keyRelease(isP2 ? KeyEvent.VK_DOWN : KeyEvent.VK_S);
+						robot.keyRelease(downKey());
 						isScrolling = false;
 					}
 				}
@@ -306,7 +368,7 @@ public class HackMatchGameInterface{
 			}
 		}finally{
 			if(isScrolling){
-				robot.keyRelease(isP2 ? KeyEvent.VK_DOWN : KeyEvent.VK_S);
+				robot.keyRelease(downKey());
 			}
 		}
 	}

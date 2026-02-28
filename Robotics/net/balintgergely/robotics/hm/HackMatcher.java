@@ -121,7 +121,7 @@ public class HackMatcher {
 		label.setHorizontalTextPosition(SwingConstants.CENTER);
 		JButton hover = new JButton("Hover me");
 		hover.setRolloverEnabled(true);
-		JComboBox<String> modeBox = new JComboBox<>(new String[]{"Single player","Versus P1","Versus P2"});
+		JComboBox<String> modeBox = new JComboBox<>(new String[]{"Single player","Versus P1","Versus P2","Versus P2 No numpad"});
 		frame.add(hover, BorderLayout.PAGE_START);
 		frame.add(modeBox, BorderLayout.PAGE_END);
 		frame.add(label, BorderLayout.CENTER);
@@ -153,11 +153,16 @@ public class HackMatcher {
 					matcher.moveRight();
 					x++;
 				}
-
-				if((moveCode & StateTree.ACTION_TYPE_MASK) == StateTree.ACTION_SWAP){
-					matcher.swap();
-				}else{
-					matcher.grabOrDrop();
+				switch(moveCode & StateTree.ACTION_TYPE_MASK){
+					case StateTree.ACTION_MOVE:
+						stuck = state;
+						break;
+					case StateTree.ACTION_SWAP:
+						matcher.swap();
+						break;
+					case StateTree.ACTION_GRAB_DROP:
+						matcher.grabOrDrop();
+						break;
 				}
 			}
 		}

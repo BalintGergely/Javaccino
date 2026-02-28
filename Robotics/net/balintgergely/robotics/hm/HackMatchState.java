@@ -8,7 +8,7 @@ public final class HackMatchState {
 	// EXA NINA's attack does not affect the brick held by the EXA.
 	// Matching SUPERs will leave the brick held by the EXA, as well as other supers of the same type.
 	// Garbage remembers it's original color.
-	// Matching loop: Find match, revert garbage, apply gravity, repeat.
+	// Reverted garbage can form a match "midair" before falling.
 
 	public static final byte
 		BRICK_EMPTY    = 0b0000,
@@ -82,6 +82,9 @@ public final class HackMatchState {
 	public long unknown(){
 		return b0 & b1 & b2 & b3 & BOARD_HAND;
 	}
+	public long garbage(){
+		return b0 & ~b1 & ~b2 & ~b3 & BOARD_HAND;
+	}
 	public long known(){
 		return occupied() & ~unknown() & BOARD_HAND;
 	}
@@ -147,8 +150,20 @@ public final class HackMatchState {
 		long rb3 = computeSwap(b3, sw0, sw1);
 		return new HackMatchState(rb0,rb1,rb2,rb3);
 	}
+	public boolean maySwap(int col){
+		long sw0 = Long.lowestOneBit(occupied() & col(col)) << 6;
+		
+		return
+			   (((b0 << 6) ^ b0) & sw0) != 0
+			|| (((b1 << 6) ^ b1) & sw0) != 0
+			|| (((b2 << 6) ^ b2) & sw0) != 0
+			|| (((b3 << 6) ^ b3) & sw0) != 0;
+	}
 	private static long computeMove(long m,long bit0,long bit1){
 		return (m & ~bit0) | ((m & bit0) == 0 ? 0 : bit1);
+	}
+	public long grabTargetInCol(int col){
+		return Long.lowestOneBit(occupied() & col(col));
 	}
 	public HackMatchState grab(int col){
 		long gb = Long.lowestOneBit(occupied() & col(col));
@@ -259,6 +274,43 @@ public final class HackMatchState {
 			| processAnyMatch(~b0 &  b1 & ~b2 & ~b3 & BOARD)
 			| processAnyMatch(~b0 &  b1 & ~b2 &  b3 & BOARD);
 	}
+	private static long area(long board,long flow){
+		while(true){
+			long newFlow = flow | board & flood(flow);
+			if(newFlow == flow){
+				break;
+			}
+			flow = newFlow;
+		}
+		return flow;
+	}
+	private static int ratePositionalScore(long board,long mod){
+		if((board & mod) == 0) return 0;
+		mod = flood(mod) & board;
+		board &= ~mod;
+
+		int prevAreaScores = 0;
+		int newAreaSize = 1;
+
+		while(mod != 0){
+			long flow = Long.lowestOneBit(mod);
+			long a = area(board & ~mod, flow);
+			mod &= ~a;
+			int bc = Long.bitCount(a);
+			newAreaSize += bc;
+			prevAreaScores += bc * bc;
+		}
+
+		return newAreaSize * newAreaSize - prevAreaScores;
+	}
+	public int rateBrickPosition(long t){
+		return
+			  ratePositionalScore(~b0 & ~b1 & ~b2 &  b3 & BOARD, t)
+			+ ratePositionalScore(~b0 & ~b1 &  b2 & ~b3 & BOARD, t)
+			+ ratePositionalScore(~b0 & ~b1 &  b2 &  b3 & BOARD, t)
+			+ ratePositionalScore(~b0 &  b1 & ~b2 & ~b3 & BOARD, t)
+			+ ratePositionalScore(~b0 &  b1 & ~b2 &  b3 & BOARD, t);
+	}
 	private static final long COL_SHIFT = 0b000001_000001_000001_000001_000001_000001_000001_000001_000001_000001L;
 	/**
 	 * Pop all blocks specified by the pattern.
@@ -308,7 +360,7 @@ public final class HackMatchState {
 
 		int emptyHandBonus = handOccupied() ? 0 : 1000000;
 
-		return emptyOrUnknownCount * 50 + freeLevelScore + specialCount * 5000 + emptyHandBonus;
+		return emptyOrUnknownCount * 50 + freeLevelScore + specialCount * 400 + emptyHandBonus;
 	}
 	@Override
 	public boolean equals(Object obj){

@@ -8,11 +8,12 @@ import java.util.function.Consumer;
 
 public class StateTree{
 	public static final byte
-		ACTION_NONE      = 0xF,
-		ACTION_TYPE_MASK = 0x8,
-		ACTION_COL_MASK  = 0x7,
-		ACTION_SWAP      = 0x0,
-		ACTION_GRAB_DROP = 0x8;
+		ACTION_TYPE_MASK = 0x70,
+		ACTION_COL_MASK  = 0x07,
+		ACTION_NONE      = 0x00,
+		ACTION_MOVE      = 0x10,
+		ACTION_SWAP      = 0x20,
+		ACTION_GRAB_DROP = 0x30;
 	private final StateTree parent;
 	private final HackMatchState state;
 	private final int moveScore;
@@ -38,19 +39,31 @@ public class StateTree{
 	private static byte grabDropCode(int col){
 		return (byte)(ACTION_GRAB_DROP | col);
 	}
-	private void evalAction(HackMatchState ns, byte moveCode, long affectedBricks, Consumer<StateTree> downstream, int penalty){
+	private StateTree evalAction(
+		HackMatchState ns,
+		byte moveCode,
+		long affectedBricks,
+		int penalty,
+		final boolean isGrab){
+	
 		int score = this.moveScore - penalty;
 		byte nmc = (byte)(this.moveCount + 1);
-		if(affectedBricks == 0){
-			downstream.accept(new StateTree(this, ns, moveCode, (byte)0, score, nmc, true));
-			return;
+		if(isGrab){
+			if(ns.freeLevelCount() < 2){
+				score -= 10000;
+			}
+			return new StateTree(this, ns, moveCode, (byte)0, score, nmc, true);
 		}
 		long pop = ns.computeNormalPopAt(affectedBricks);
 		byte popCount = 0;
+		boolean firstScore = true;
 		while(true){
+
 			int localScore = Long.bitCount(pop & HackMatchState.BOARD);
-			if(4 < localScore){
-				score += (localScore - 4) * 100;
+			score += localScore * 100;
+			if(localScore != 0 && firstScore){
+				score -= 4 * 100; // Prefer combos
+				firstScore = false;
 			}
 
 			long spop = ns.computeSuperPop();
@@ -60,21 +73,27 @@ public class StateTree{
 					ns = ns.pop(spop | pop);
 				
 				popCount++;
-				downstream.accept(new StateTree(this, ns, moveCode, popCount, score, nmc, false));
-				break;
+				if(ns.freeLevelCount() < 2){
+					score -= 10000;
+				}
+				return new StateTree(this, ns, moveCode, popCount, score, nmc, false);
 			}
 
 			long unknown = ns.unknown();
 			if(pop == 0){
-				downstream.accept(new StateTree(this, ns, moveCode, popCount, score, nmc, unknown == 0));
-				break;
+				if(ns.freeLevelCount() < 2){
+					score -= 10000;
+				}
+				return new StateTree(this, ns, moveCode, popCount, score, nmc, unknown == 0);
 			}
 
 			ns = ns.pop(pop);
 			popCount++;
 			if(unknown != 0){
-				downstream.accept(new StateTree(this, ns, moveCode, popCount, score, nmc, false));
-				break;
+				if(ns.freeLevelCount() < 2){
+					score -= 10000;
+				}
+				return new StateTree(this, ns, moveCode, popCount, score, nmc, false);
 			}
 
 			pop = ns.computeAnyPop();
@@ -113,31 +132,34 @@ public class StateTree{
 		}
 		int exa = state.getEXALocation();
 		for(int i = 0;i < 6;i++){
-			long sa = state.swapTargetsInCol(i);
-			if((sa << 6) != 0)
-				evalAction(state.swap(i).setEXALocation(i), swapCode(i), sa, downstream, Math.abs(exa - i) + 1);
+			if(state.maySwap(i)){
+				long t = state.swapTargetsInCol(i);
+				downstream.accept(
+					evalAction(state.swap(i).setEXALocation(i), swapCode(i), t, Math.abs(exa - i) + 1, false));
+			}
 		}
 		if(state.handOccupied()){
 			for(int i = 0;i < 6;i++){
 				long t = state.dropTargetInCol(i);
 				if(t != 0)
-					evalAction(state.drop(i).setEXALocation(i), grabDropCode(i), t, downstream, Math.abs(exa - i) + 1);
+					downstream.accept(
+						evalAction(state.drop(i).setEXALocation(i), grabDropCode(i), t, Math.abs(exa - i) + 1, false));
 			}
 		}else{
 			for(int i = 0;i < 6;i++){
-				if(state.colOccupied(i))
-					evalAction(state.grab(i).setEXALocation(i), grabDropCode(i), 0, downstream, Math.abs(exa - i) + 1);
+				long t = state.grabTargetInCol(i);
+				if(t != 0)
+					downstream.accept(
+						evalAction(state.grab(i).setEXALocation(i), grabDropCode(i), t, Math.abs(exa - i) + 1, true));
 			}
 		}
 	}
 	public static byte decideMove(HackMatchState startState){
 		StateTree start = start(startState, 0);
-		final int moveCap;
-		switch(startState.freeLevelCount()){
-			case 0: moveCap = 3; break;
-			case 1: moveCap = 4; break;
-			default: moveCap = 10; break;
-		}
+		int garbageCount = Long.bitCount(startState.garbage());
+		int brickCount = Long.bitCount(startState.occupied());
+		final boolean avoidMatching = brickCount < 6 * 5;
+		final int moveCap = 12 + garbageCount;
 		PriorityQueue<StateTree> priorityQueue = new PriorityQueue<>(1000,Comparator.comparing(StateTree::getScore).reversed());
 		HashMap<HackMatchState,StateTree> bestMap = new HashMap<>(10010);
 		bestMap.put(start.getState(), start);
@@ -169,6 +191,9 @@ public class StateTree{
 		}
 		while(bestState.getParent() != start){
 			bestState = bestState.getParent();
+		}
+		if(avoidMatching && bestState.getPopCount() != 0){
+			return (byte)((bestState.getMoveCode() & ~ACTION_TYPE_MASK) | ACTION_MOVE);
 		}
 		return bestState.getMoveCode();
 	}
