@@ -49,6 +49,7 @@ public final class HackMatchState {
 		COL_5 = COL_0 >>> 5,
 		ROW_0 = 0b111111_000000_000000_000000_000000_000000_000000_000000_000000_000000_0000L,
 		ROW_1 = ROW_0 >>> 6,
+		ROW_8 = ROW_0 >>> 6 * 8,
 		ROW_9 = ROW_0 >>> 6 * 9,
 		BOARD = 0b111111_111111_111111_111111_111111_111111_111111_111111_111111_111111_0000L,
 		HAND  = 0b000000_000000_000000_000000_000000_000000_000000_000000_000000_000000_1000L,
@@ -148,7 +149,7 @@ public final class HackMatchState {
 		long rb1 = computeSwap(b1, sw0, sw1);
 		long rb2 = computeSwap(b2, sw0, sw1);
 		long rb3 = computeSwap(b3, sw0, sw1);
-		return new HackMatchState(rb0,rb1,rb2,rb3);
+		return new HackMatchState((rb0 & ~EXA) | (col + 1),rb1,rb2,rb3);
 	}
 	public boolean maySwap(int col){
 		long sw0 = Long.lowestOneBit(occupied() & col(col)) << 6;
@@ -171,7 +172,7 @@ public final class HackMatchState {
 		long rb1 = computeMove(b1,gb,HAND);
 		long rb2 = computeMove(b2,gb,HAND);
 		long rb3 = computeMove(b3,gb,HAND);
-		return new HackMatchState(rb0, rb1, rb2, rb3);
+		return new HackMatchState((rb0 & ~EXA) | (col + 1), rb1, rb2, rb3);
 	}
 	public boolean colOccupied(int col){
 		return (occupied() & col(col)) != 0;
@@ -185,7 +186,7 @@ public final class HackMatchState {
 		long rb1 = computeMove(b1,HAND,tb);
 		long rb2 = computeMove(b2,HAND,tb);
 		long rb3 = computeMove(b3,HAND,tb);
-		return new HackMatchState(rb0, rb1, rb2, rb3);
+		return new HackMatchState((rb0 & ~EXA) | (col + 1), rb1, rb2, rb3);
 	}
 	private static long detectMatch2(long board){
 		long hmatches = ((board & ~COL_0 & BOARD) << 1) & board;
@@ -216,14 +217,17 @@ public final class HackMatchState {
 			| (x & (~ROW_0 & BOARD)) <<  6
 			| (x & (~ROW_9 & BOARD)) >>> 6;
 	}
-	private static long processSingleFlow(long board,long flow){
+	private static long area(long board,long flow){
 		while(true){
 			long newFlow = flow | board & flood(flow);
 			if(newFlow == flow){
-				break;
+				return flow;
 			}
 			flow = newFlow;
 		}
+	}
+	private static long processSingleFlow(long board,long flow){
+		flow = area(board, flow);
 		long mx = 0;
 		if((flow & ROW_0) != 0){
 			mx |= FLAG_TOUCHES_TOP_ROW;
@@ -248,14 +252,7 @@ public final class HackMatchState {
 	private static long processAnyMatch(long board){
 		long mx = 0;
 		while(board != 0){
-			long flow = Long.lowestOneBit(board);
-			while(true){
-				long newFlow = flow | board & flood(flow);
-				if(newFlow == flow){
-					break;
-				}
-				flow = newFlow;
-			}
+			long flow = area(board, Long.lowestOneBit(board));
 			if((flow & ROW_0) != 0){
 				mx |= FLAG_TOUCHES_TOP_ROW;
 			}
@@ -274,42 +271,25 @@ public final class HackMatchState {
 			| processAnyMatch(~b0 &  b1 & ~b2 & ~b3 & BOARD)
 			| processAnyMatch(~b0 &  b1 & ~b2 &  b3 & BOARD);
 	}
-	private static long area(long board,long flow){
-		while(true){
-			long newFlow = flow | board & flood(flow);
-			if(newFlow == flow){
-				break;
-			}
-			flow = newFlow;
-		}
-		return flow;
-	}
-	private static int ratePositionalScore(long board,long mod){
-		if((board & mod) == 0) return 0;
-		mod = flood(mod) & board;
-		board &= ~mod;
+	private static int ratePositionalScore(long board){
+		int score = 0;
 
-		int prevAreaScores = 0;
-		int newAreaSize = 1;
-
-		while(mod != 0){
-			long flow = Long.lowestOneBit(mod);
-			long a = area(board & ~mod, flow);
-			mod &= ~a;
+		while(board != 0){
+			long a = area(board, Long.lowestOneBit(board));
+			board = board & ~a;
 			int bc = Long.bitCount(a);
-			newAreaSize += bc;
-			prevAreaScores += bc * bc;
+			score += bc * bc - 1;
 		}
 
-		return newAreaSize * newAreaSize - prevAreaScores;
+		return score;
 	}
-	public int rateBrickPosition(long t){
+	public int rateBrickAdjacency(){
 		return
-			  ratePositionalScore(~b0 & ~b1 & ~b2 &  b3 & BOARD, t)
-			+ ratePositionalScore(~b0 & ~b1 &  b2 & ~b3 & BOARD, t)
-			+ ratePositionalScore(~b0 & ~b1 &  b2 &  b3 & BOARD, t)
-			+ ratePositionalScore(~b0 &  b1 & ~b2 & ~b3 & BOARD, t)
-			+ ratePositionalScore(~b0 &  b1 & ~b2 &  b3 & BOARD, t);
+			  ratePositionalScore(~b0 & ~b1 & ~b2 &  b3 & BOARD)
+			+ ratePositionalScore(~b0 & ~b1 &  b2 & ~b3 & BOARD)
+			+ ratePositionalScore(~b0 & ~b1 &  b2 &  b3 & BOARD)
+			+ ratePositionalScore(~b0 &  b1 & ~b2 & ~b3 & BOARD)
+			+ ratePositionalScore(~b0 &  b1 & ~b2 &  b3 & BOARD);
 	}
 	private static final long COL_SHIFT = 0b000001_000001_000001_000001_000001_000001_000001_000001_000001_000001L;
 	/**
@@ -343,24 +323,6 @@ public final class HackMatchState {
 		}
 
 		return new HackMatchState(rb0, rb1, rb2, rb3);
-	}
-	public int rateState(){
-		int specialCount = Long.bitCount(supers() & BOARD_HAND);
-		int freeLevelCount = (Long.numberOfTrailingZeros(occupied() & BOARD) - 4) / 6;
-		int emptyOrUnknownCount = Long.bitCount((unknown() | empty()) & BOARD_HAND);
-
-		int freeLevelScore;
-		switch(freeLevelCount){
-			case 0: freeLevelScore = 0;
-			case 1: freeLevelScore = 40000;
-			case 2: freeLevelScore = 60000;
-			case 3: freeLevelScore = 70000;
-			default: freeLevelScore = 80000;
-		}
-
-		int emptyHandBonus = handOccupied() ? 0 : 1000000;
-
-		return emptyOrUnknownCount * 50 + freeLevelScore + specialCount * 400 + emptyHandBonus;
 	}
 	@Override
 	public boolean equals(Object obj){
